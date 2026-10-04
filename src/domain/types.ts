@@ -3,8 +3,10 @@ export type SettlementId =
   | "deadwood_gulch"
   | "leadville_shaft"
   | "blackwater_rig"
+  | "tombstone_crossing"
   | "saint_louis"
-  | "new_denver";
+  | "new_denver"
+  | "new_chicago";
 
 export type SettlementTier = "frontier_town" | "major_city";
 
@@ -16,10 +18,14 @@ export type TerrainType =
 
 export type TransportId =
   | "on_foot"
+  | "hand_cart"
   | "old_donkey"
+  | "pack_mule_team"
   | "wooden_cart_donkey"
   | "heavy_wagon_horse"
+  | "brahmin_freight_wagon"
   | "scrap_motorcycle"
+  | "desert_dune_buggy"
   | "armored_pickup";
 
 export type PropulsionType = "human" | "animal" | "motor";
@@ -46,24 +52,58 @@ export type ItemId =
   | "luxury_cigars"
   | "moonshine"
   | "field_bandage"
+  | "copper_ore"
+  | "canned_beef"
+  | "whiskey_barrel"
+  | "diesel_parts"
   | "rusty_machete"
+  | "cavalry_saber"
+  | "sledgehammer"
+  | "derringer_22"
   | "revolver_38"
-  | "bolt_rifle_308"
+  | "peacemaker_45"
   | "coach_shotgun_12g"
+  | "pump_shotgun_12g"
+  | "varmint_rifle_22"
+  | "lever_repeater_38"
+  | "bolt_rifle_308"
+  | "grease_smg_9mm"
   | "carbine_556"
+  | "sniper_rifle_762"
+  | "ammo_22"
   | "ammo_38"
-  | "ammo_308"
+  | "ammo_9mm"
+  | "ammo_45"
   | "ammo_12g"
-  | "ammo_556";
+  | "ammo_308"
+  | "ammo_556"
+  | "ammo_762";
 
 export type WeaponId =
   | "rusty_machete"
+  | "cavalry_saber"
+  | "sledgehammer"
+  | "derringer_22"
   | "revolver_38"
-  | "bolt_rifle_308"
+  | "peacemaker_45"
   | "coach_shotgun_12g"
-  | "carbine_556";
+  | "pump_shotgun_12g"
+  | "varmint_rifle_22"
+  | "lever_repeater_38"
+  | "bolt_rifle_308"
+  | "grease_smg_9mm"
+  | "carbine_556"
+  | "sniper_rifle_762";
 
-export type AmmoItemId = "ammo_38" | "ammo_308" | "ammo_12g" | "ammo_556";
+export type AmmoItemId =
+  | "ammo_22"
+  | "ammo_38"
+  | "ammo_9mm"
+  | "ammo_45"
+  | "ammo_12g"
+  | "ammo_308"
+  | "ammo_556"
+  | "ammo_762";
 
 export interface CharacterAttributes {
   grit: number; // Determines Max HP (50 + grit * 12) & personal carry capacity (+6 kg/pt)
@@ -230,7 +270,7 @@ export interface CombatGridTile {
   defenseBonus: number; // 0, 25, or 45 (% reduction to incoming hit chance)
 }
 
-export type FiringMode = "melee" | "snap" | "aimed";
+export type FiringMode = "melee" | "snap" | "aimed" | "headshot" | "legshot";
 
 export interface CombatUnit {
   id: string;
@@ -249,6 +289,8 @@ export interface CombatUnit {
   accuracy: number;
   morale: number; // 0 to 100; if < 25 may flee
   isFled?: boolean;
+  isCrouched?: boolean;
+  crippledLegs?: boolean;
 }
 
 export interface CombatState {

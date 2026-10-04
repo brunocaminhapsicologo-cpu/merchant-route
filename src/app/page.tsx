@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { soundEngine, WeaponSoundCategory } from "@/assets/soundEngine";
 import { OverworldMapCanvas } from "@/components/OverworldMapCanvas";
 import { PreCombatEncounterModal } from "@/components/PreCombatEncounterModal";
 import { TacticalCombatModal } from "@/components/TacticalCombatModal";
@@ -56,11 +57,39 @@ import {
   Truck,
   User,
   Utensils,
+  Volume2,
+  VolumeX,
   Wheat,
   Zap,
 } from "lucide-react";
 
 const SAVE_STORAGE_KEY = "merchant_route_save_v1";
+
+function getWeaponSoundCategory(weaponId: WeaponId): WeaponSoundCategory {
+  switch (weaponId) {
+    case "rusty_machete":
+    case "cavalry_saber":
+    case "sledgehammer":
+      return "melee";
+    case "derringer_22":
+      return "pistol";
+    case "revolver_38":
+    case "peacemaker_45":
+      return "revolver";
+    case "coach_shotgun_12g":
+    case "pump_shotgun_12g":
+      return "shotgun";
+    case "grease_smg_9mm":
+      return "smg";
+    case "sniper_rifle_762":
+      return "sniper";
+    case "varmint_rifle_22":
+    case "lever_repeater_38":
+    case "bolt_rifle_308":
+    case "carbine_556":
+      return "rifle";
+  }
+}
 
 export default function MerchantRouteGamePage() {
   const [state, setState] = useState<GameState>(() => createInitialGameState());
@@ -70,6 +99,7 @@ export default function MerchantRouteGamePage() {
   const [selectedSettlement, setSelectedSettlement] =
     useState<SettlementId>("dust_creek");
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
 
   // Load saved game on mount
   useEffect(() => {
@@ -87,8 +117,14 @@ export default function MerchantRouteGamePage() {
     } catch {
       // Ignore malformed storage
     }
+    setIsMuted(soundEngine.isMuted());
     setIsHydrated(true);
   }, []);
+
+  const handleToggleMute = () => {
+    const nextMuted = soundEngine.toggleMute();
+    setIsMuted(nextMuted);
+  };
 
   // Auto-save whenever state changes
   useEffect(() => {
@@ -138,6 +174,9 @@ export default function MerchantRouteGamePage() {
         };
         const transportDef = TRANSPORTS[prev.transport];
         const logs = [...prev.journalLogs];
+
+        // Play procedural travel tick sound
+        soundEngine.playTravelTick(transportDef.propulsion);
 
         // Consume Gasoline if driving a motor vehicle
         if (transportDef.propulsion === "motor" && kmThisHour > 2.5) {
@@ -276,6 +315,7 @@ export default function MerchantRouteGamePage() {
 
         if (route && Math.random() < encounterProbability) {
           const encounter = generateRoadEncounter(prev, route);
+          soundEngine.playEncounterAlert();
           logs.unshift(
             `Day ${nextDay}, ${String(nextHour).padStart(
               2,
@@ -399,6 +439,7 @@ export default function MerchantRouteGamePage() {
       ROUTES.find((r) => r.from === origin || r.to === origin) ??
       ROUTES[0];
     const encounter = generateRoadEncounter(state, route);
+    soundEngine.playEncounterAlert();
     setState((prev) => ({
       ...prev,
       pendingEncounter: encounter,
@@ -414,6 +455,7 @@ export default function MerchantRouteGamePage() {
 
     if (townAvailable < qty || state.cash < totalCost) return;
 
+    soundEngine.playCashSound();
     setState((prev) => ({
       ...prev,
       cash: prev.cash - totalCost,
@@ -446,6 +488,7 @@ export default function MerchantRouteGamePage() {
     const totalRevenue = prices.sellPrice * actualQty;
     const townAvailable = state.townStocks[settlementId]?.[itemId] ?? 0;
 
+    soundEngine.playCashSound();
     setState((prev) => ({
       ...prev,
       cash: prev.cash + totalRevenue,
@@ -472,6 +515,7 @@ export default function MerchantRouteGamePage() {
     const isOwned = state.ownedTransports.includes(transportId);
 
     if (isOwned) {
+      soundEngine.playCashSound();
       setState((prev) => ({
         ...prev,
         transport: transportId,
@@ -485,6 +529,7 @@ export default function MerchantRouteGamePage() {
 
     if (state.cash < tr.price) return;
 
+    soundEngine.playCashSound();
     setState((prev) => ({
       ...prev,
       cash: prev.cash - tr.price,
@@ -510,6 +555,7 @@ export default function MerchantRouteGamePage() {
 
   const handleBuyRumor = () => {
     if (state.cash < 15) return;
+    soundEngine.playCashSound();
     const unknownEvent = state.marketEvents.find(
       (evt) => !state.knownRumorIds.includes(evt.id)
     );
@@ -532,8 +578,10 @@ export default function MerchantRouteGamePage() {
         "deadwood_gulch",
         "leadville_shaft",
         "blackwater_rig",
+        "tombstone_crossing",
         "saint_louis",
         "new_denver",
+        "new_chicago",
       ];
       const randomSettlement =
         settlementsList[Math.floor(Math.random() * settlementsList.length)];
@@ -566,6 +614,7 @@ export default function MerchantRouteGamePage() {
 
   const handleRestAtSaloon = () => {
     if (state.cash < 20) return;
+    soundEngine.playCashSound();
     setState((prev) => {
       const fullHp = getMaxHp(prev.attributes);
       return {
@@ -589,6 +638,7 @@ export default function MerchantRouteGamePage() {
     if (!merc || state.cash < merc.hiringFee) return;
     if (state.hiredMercenaries.some((m) => m.id === mercId)) return;
 
+    soundEngine.playCashSound();
     setState((prev) => ({
       ...prev,
       cash: prev.cash - merc.hiringFee,
@@ -619,6 +669,7 @@ export default function MerchantRouteGamePage() {
     encounter.title = `Sheriff Bounty Hunt: ${bounty.bossName}`;
     encounter.enemyGroupName = bounty.gangName;
 
+    soundEngine.playEncounterAlert();
     setState((prev) => ({
       ...prev,
       pendingEncounter: encounter,
@@ -697,6 +748,7 @@ export default function MerchantRouteGamePage() {
     if (!state.pendingEncounter) return;
     const toll = state.pendingEncounter.tollDemandCash;
     if (state.cash < toll) return;
+    soundEngine.playCashSound();
     setState((prev) => ({
       ...prev,
       cash: prev.cash - toll,
@@ -713,7 +765,10 @@ export default function MerchantRouteGamePage() {
     const squadFirepower =
       state.attributes.charisma * 2 +
       state.hiredMercenaries.length * 4 +
-      (state.equippedWeapon === "carbine_556" ? 6 : 4);
+      (state.equippedWeapon === "carbine_556" ||
+      state.equippedWeapon === "sniper_rifle_762"
+        ? 6
+        : 4);
     const intimidateChance = Math.max(
       10,
       Math.min(
@@ -767,12 +822,18 @@ export default function MerchantRouteGamePage() {
         targetY
       );
       const tile = combat.tiles[targetY]?.[targetX];
-      if (!tile || dist !== 1 || activeUnit.ap < tile.moveApCost) return prev;
+      const effectiveMoveCost =
+        (tile?.moveApCost ?? 1) * (activeUnit.crippledLegs ? 2 : 1);
+      if (!tile || dist !== 1 || activeUnit.ap < effectiveMoveCost) return prev;
 
       const occupied = combat.units.some(
         (u) => u.x === targetX && u.y === targetY && u.hp > 0 && !u.isFled
       );
       if (occupied) return prev;
+
+      soundEngine.playStepSound(
+        tile.cover === "rocks" || tile.cover === "ruins" ? "rock" : "sand"
+      );
 
       const nextUnits = combat.units.map((u) =>
         u.id === activeUnit.id
@@ -780,7 +841,7 @@ export default function MerchantRouteGamePage() {
               ...u,
               x: targetX,
               y: targetY,
-              ap: u.ap - tile.moveApCost,
+              ap: u.ap - effectiveMoveCost,
             }
           : u
       );
@@ -794,7 +855,49 @@ export default function MerchantRouteGamePage() {
           ...combat,
           units: nextUnits,
           combatLog: [
-            `${activeUnit.name} moved to (${targetX},${targetY}) [-${tile.moveApCost} AP]${coverNote}`,
+            `${activeUnit.name} moved to (${targetX},${targetY}) [-${effectiveMoveCost} AP]${coverNote}`,
+            ...combat.combatLog,
+          ],
+        },
+      };
+    });
+  };
+
+  const handleToggleCrouch = () => {
+    setState((prev) => {
+      if (!prev.combatState || prev.combatState.outcome !== "ongoing") {
+        return prev;
+      }
+      const combat = prev.combatState;
+      const activeUnit = combat.units.find(
+        (u) => u.id === combat.activeUnitId
+      );
+      if (!activeUnit || activeUnit.ap < 2) return prev;
+
+      const nextCrouch = !activeUnit.isCrouched;
+      soundEngine.playStepSound("sand");
+
+      const nextUnits = combat.units.map((u) =>
+        u.id === activeUnit.id
+          ? {
+              ...u,
+              ap: u.ap - 2,
+              isCrouched: nextCrouch,
+            }
+          : u
+      );
+
+      return {
+        ...prev,
+        combatState: {
+          ...combat,
+          units: nextUnits,
+          combatLog: [
+            `🦵 ${activeUnit.name} ${
+              nextCrouch
+                ? "crouched (+15% Ranged Defense, +8% Aim Stability)"
+                : "stood up from crouch"
+            } [-2 AP].`,
             ...combat.combatLog,
           ],
         },
@@ -821,6 +924,11 @@ export default function MerchantRouteGamePage() {
       if (!preview.canAttack) return prev;
 
       const weaponStats = ITEMS[attacker.weapon].weaponStats!;
+      const effectiveMode: FiringMode =
+        weaponStats.ammoType === null ? "melee" : combat.selectedFiringMode;
+
+      soundEngine.playWeaponSound(getWeaponSoundCategory(attacker.weapon));
+
       const nextInventory = { ...prev.inventory };
 
       // Deduct 1 round from caravan ammo reserve if player unit fires a ranged weapon
@@ -840,12 +948,24 @@ export default function MerchantRouteGamePage() {
           )
         : 0;
 
+      if (isHit) {
+        soundEngine.playHitSound(effectiveMode === "headshot");
+      } else {
+        soundEngine.playMissRicochet();
+      }
+
       const newLogs = [...combat.combatLog];
       if (isHit) {
+        const modeTag =
+          effectiveMode === "headshot"
+            ? "CRITICAL HEADSHOT 1.9x"
+            : effectiveMode === "legshot"
+            ? "LEG CRIPPLE SHOT"
+            : effectiveMode.toUpperCase();
         newLogs.unshift(
           `💥 ${attacker.name} hit ${target.name} with ${
             ITEMS[attacker.weapon].name
-          } (${combat.selectedFiringMode.toUpperCase()}) for ${damage} dmg! (${
+          } (${modeTag}) for ${damage} dmg! (${
             preview.hitChancePercent
           }% chance)`
         );
@@ -869,6 +989,21 @@ export default function MerchantRouteGamePage() {
         if (u.id === target.id && isHit) {
           const updatedHp = Math.max(0, u.hp - damage);
           const updatedMorale = Math.max(0, u.morale - damage * 1.1);
+          const newlyCrippled =
+            effectiveMode === "legshot" && !u.crippledLegs;
+          const updatedMaxAp = newlyCrippled
+            ? Math.max(2, u.maxAp - 2)
+            : u.maxAp;
+          const updatedAp = newlyCrippled
+            ? Math.max(0, Math.min(u.ap - 2, updatedMaxAp))
+            : u.ap;
+
+          if (newlyCrippled && updatedHp > 0) {
+            newLogs.unshift(
+              `🦵 ${u.name}'s legs were crippled! (-2 Max AP, 2x movement AP cost)`
+            );
+          }
+
           const shouldFlee =
             !u.isPlayerTeam &&
             updatedHp > 0 &&
@@ -885,8 +1020,11 @@ export default function MerchantRouteGamePage() {
           return {
             ...u,
             hp: updatedHp,
+            ap: updatedAp,
+            maxAp: updatedMaxAp,
             morale: updatedMorale,
             isFled: shouldFlee,
+            crippledLegs: u.crippledLegs || newlyCrippled,
           };
         }
         return u;
@@ -900,6 +1038,7 @@ export default function MerchantRouteGamePage() {
         remainingEnemies.length === 0 ? "victory" : "ongoing";
 
       if (outcome === "victory") {
+        soundEngine.playVictorySting();
         newLogs.unshift(
           `🏆 All hostiles neutralized! Click 'Collect Salvage & Return to Map' to claim your loot.`
         );
@@ -947,6 +1086,8 @@ export default function MerchantRouteGamePage() {
       ) {
         return prev;
       }
+
+      soundEngine.playReloadSound();
 
       const nextUnits = combat.units.map((u) =>
         u.id === activeUnit.id
@@ -1096,6 +1237,7 @@ export default function MerchantRouteGamePage() {
       for (const enemy of enemyUnits) {
         let apRemaining = enemy.maxAp;
         const weaponStats = ITEMS[enemy.weapon].weaponStats!;
+        const stepApCost = enemy.crippledLegs ? 2 : 1;
 
         // Find closest living player unit
         const livingTargets = workingUnits.filter(
@@ -1112,7 +1254,7 @@ export default function MerchantRouteGamePage() {
 
         // Move toward optimal range if needed
         while (
-          apRemaining >= 1 &&
+          apRemaining >= stepApCost &&
           getManhattanDistance(
             enemy.x,
             enemy.y,
@@ -1132,7 +1274,7 @@ export default function MerchantRouteGamePage() {
 
           enemy.x = stepX;
           enemy.y = stepY;
-          apRemaining -= 1;
+          apRemaining -= stepApCost;
         }
 
         // Attack if in max range and has AP
@@ -1147,18 +1289,22 @@ export default function MerchantRouteGamePage() {
           apRemaining >= weaponStats.snapShotAp
         ) {
           apRemaining -= weaponStats.snapShotAp;
+          soundEngine.playWeaponSound(getWeaponSoundCategory(enemy.weapon));
+
           const targetTile =
             combat.tiles[primaryTarget.y]?.[primaryTarget.x];
           const coverPenalty =
             weaponStats.ammoType !== null
-              ? targetTile?.defenseBonus ?? 0
+              ? (targetTile?.defenseBonus ?? 0) +
+                (primaryTarget.isCrouched ? 15 : 0)
               : 0;
           const hitChance = Math.max(
-            15,
+            12,
             Math.min(88, enemy.accuracy - coverPenalty)
           );
 
           if (Math.random() * 100 <= hitChance) {
+            soundEngine.playHitSound(false);
             const dmg = Math.floor(
               weaponStats.minDamage +
                 Math.random() *
@@ -1166,9 +1312,10 @@ export default function MerchantRouteGamePage() {
             );
             primaryTarget.hp = Math.max(0, primaryTarget.hp - dmg);
             newLogs.unshift(
-              `🔻 ${enemy.name} attacked ${primaryTarget.name} for ${dmg} dmg! (Cover reduced hit by ${coverPenalty}%)`
+              `🔻 ${enemy.name} attacked ${primaryTarget.name} for ${dmg} dmg! (Cover/Stance reduced hit by ${coverPenalty}%)`
             );
           } else {
+            soundEngine.playMissRicochet();
             newLogs.unshift(
               `🛡️ ${enemy.name} fired at ${primaryTarget.name} but missed!`
             );
@@ -1410,6 +1557,27 @@ export default function MerchantRouteGamePage() {
               <Clock className="h-3.5 w-3.5 text-amber-400" />
               Day {state.day}, {String(state.hour).padStart(2, "0")}:00
             </div>
+
+            <button
+              type="button"
+              onClick={handleToggleMute}
+              title={isMuted ? "Unmute Audio" : "Mute Audio"}
+              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold cursor-pointer ${
+                isMuted
+                  ? "border-red-800/60 bg-red-950/40 text-red-200 hover:bg-red-900/60"
+                  : "border-amber-700/60 bg-amber-950/40 text-amber-200 hover:bg-amber-900/60"
+              }`}
+            >
+              {isMuted ? (
+                <>
+                  <VolumeX className="h-3.5 w-3.5" /> Unmute Audio
+                </>
+              ) : (
+                <>
+                  <Volume2 className="h-3.5 w-3.5" /> Mute Audio
+                </>
+              )}
+            </button>
 
             <button
               type="button"
@@ -1764,6 +1932,7 @@ export default function MerchantRouteGamePage() {
           onMoveActiveUnit={handleMoveActiveUnit}
           onAttackTarget={handleAttackTarget}
           onSetFiringMode={handleSetFiringMode}
+          onToggleCrouch={handleToggleCrouch}
           onReloadWeapon={handleReloadWeapon}
           onUseFieldBandage={handleUseFieldBandage}
           onSwitchCombatWeapon={handleSwitchCombatWeapon}

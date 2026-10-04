@@ -2,6 +2,11 @@
 
 import React, { useState } from "react";
 import {
+  NpcPortraitSvg,
+  TransportIllustration,
+  WeaponSilhouette,
+} from "@/assets/caravaneerSprites";
+import {
   getMarketPrices,
   getTradeRouteRecommendation,
 } from "@/domain/economyEngine";
@@ -26,7 +31,6 @@ import {
   Coins,
   Flame,
   HeartPulse,
-  MessageSquareQuote,
   Package,
   Scale,
   Shield,
@@ -182,9 +186,13 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
         {/* Interactive NPC Dialogue Box */}
         <div className="mt-3 rounded-lg border border-amber-800/40 bg-stone-950/90 p-3.5">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex items-start gap-3 max-w-3xl">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-amber-600/60 bg-amber-950/70 text-amber-300">
-                <MessageSquareQuote className="h-6 w-6" />
+            <div className="flex items-start gap-3.5 max-w-3xl">
+              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-amber-600/60 bg-stone-900 shadow-md">
+                <NpcPortraitSvg
+                  role={activeNpc}
+                  tier={settlement.tier}
+                  className="h-full w-full"
+                />
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -322,6 +330,14 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
                     >
                       <td className="py-2.5 px-3">
                         <div className="flex items-center gap-2">
+                          {item.category === "weapon" && (
+                            <div className="h-6 w-16 shrink-0 rounded border border-stone-700 bg-stone-950/90 p-0.5">
+                              <WeaponSilhouette
+                                weaponId={item.id}
+                                className="h-full w-full"
+                              />
+                            </div>
+                          )}
                           <span className="font-bold text-stone-100">
                             {item.name}
                           </span>
@@ -461,8 +477,8 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
               </h3>
               <p className="text-xs text-stone-400">
                 Frontier towns specialize in pack animals & wooden wagons. Only
-                major US cities (Saint Louis & New Denver) manufacture motor
-                bikes and trucks.
+                major US cities (Saint Louis, New Denver & New Chicago)
+                manufacture motor bikes, buggies, and V8 trucks.
               </p>
             </div>
 
@@ -510,6 +526,12 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
                   }`}
                 >
                   <div>
+                    <div className="mb-2.5 h-16 w-full rounded-lg border border-stone-800/80 bg-stone-900/70 p-1.5">
+                      <TransportIllustration
+                        transportId={tr.id}
+                        className="h-full w-full"
+                      />
+                    </div>
                     <div className="flex items-center justify-between gap-2">
                       <h4 className="font-bold text-sm text-amber-100">
                         {tr.name}

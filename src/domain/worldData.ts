@@ -38,7 +38,7 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
     weightKg: 1.5,
     basePrice: 5,
     description:
-      "Bundled scrub grass and oats for donkeys and horses. Heavy, cheap in farming villages.",
+      "Bundled scrub grass and oats for donkeys, mules, horses, and oxen. Cheap in farming and ranch towns.",
   },
   gasoline: {
     id: "gasoline",
@@ -47,7 +47,7 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
     weightKg: 0.9,
     basePrice: 38,
     description:
-      "Liquid gold of the wasteland. Only produced at Blackwater Rig and traded in major cities.",
+      "Liquid gold of the wasteland. Pumped at Blackwater Rig and burned by motorcycles, buggies, and V8 trucks.",
   },
   raw_leather: {
     id: "raw_leather",
@@ -56,7 +56,7 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
     weightKg: 2.5,
     basePrice: 45,
     description:
-      "Thick hides tanned in Deadwood Gulch. Highly prized by tailors and armorers in Saint Louis.",
+      "Thick hides tanned in Deadwood Gulch and Tombstone Crossing. Prized by tailors and armorers in Saint Louis.",
   },
   smoked_jerky: {
     id: "smoked_jerky",
@@ -74,7 +74,7 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
     weightKg: 4.0,
     basePrice: 30,
     description:
-      "Heavy smelted scrap from Leadville Shaft. Essential for New Denver and Saint Louis workshops.",
+      "Heavy smelted scrap from Leadville Shaft. Essential for New Denver, Saint Louis, and New Chicago workshops.",
   },
   salt: {
     id: "salt",
@@ -83,7 +83,7 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
     weightKg: 2.0,
     basePrice: 22,
     description:
-      "Used by ranchers in Deadwood Gulch to cure meat and hides without refrigeration.",
+      "Used by ranchers in Deadwood Gulch and Tombstone Crossing to cure meat and hides without refrigeration.",
   },
   tools: {
     id: "tools",
@@ -92,7 +92,7 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
     weightKg: 3.0,
     basePrice: 75,
     description:
-      "Precision wrenches and drills forged in New Denver. Frontier villages desperate for repairs pay top dollar.",
+      "Precision wrenches and drills forged in New Denver and New Chicago. Frontier settlements pay top dollar.",
   },
   antibiotics: {
     id: "antibiotics",
@@ -110,7 +110,7 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
     weightKg: 0.5,
     basePrice: 95,
     description:
-      "Hand-rolled tobacco for wealthy barons and oil bosses.",
+      "Hand-rolled riverfront tobacco leaf for wealthy industrial barons and oil bosses.",
   },
   moonshine: {
     id: "moonshine",
@@ -120,7 +120,7 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
     basePrice: 68,
     isContraband: true,
     description:
-      "Illicit high-proof liquor. Prohibited by Sheriff checkpoints in Saint Louis and New Denver, where it sells for huge profits.",
+      "Illicit high-proof liquor. Prohibited by checkpoints in Saint Louis, New Denver, and New Chicago, where it sells for huge profits.",
   },
   field_bandage: {
     id: "field_bandage",
@@ -131,6 +131,44 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
     description:
       "Restores +30 HP in tactical combat (costs 3 AP) or patches wounds on the trail.",
   },
+  copper_ore: {
+    id: "copper_ore",
+    name: "Smelted Copper Ore",
+    category: "commodity",
+    weightKg: 3.5,
+    basePrice: 36,
+    description:
+      "High-grade copper ingots mined in Leadville Shaft. Essential for brass shell casings and metropolitan power grids.",
+  },
+  canned_beef: {
+    id: "canned_beef",
+    name: "Stockyard Canned Beef",
+    category: "commodity",
+    weightKg: 1.4,
+    basePrice: 42,
+    description:
+      "Hermetically sealed tins of prime spiced beef packed in Tombstone Crossing. Sought after by miners and city garrisons.",
+  },
+  whiskey_barrel: {
+    id: "whiskey_barrel",
+    name: "Frontier Oak Whiskey Cask",
+    category: "commodity",
+    weightKg: 3.2,
+    basePrice: 64,
+    description:
+      "Licensed aged bourbon from Deadwood and Tombstone distilleries. Legal everywhere and prized in northern rail hubs.",
+  },
+  diesel_parts: {
+    id: "diesel_parts",
+    name: "Precision Engine Parts",
+    category: "commodity",
+    weightKg: 2.8,
+    basePrice: 105,
+    description:
+      "Forged pistons, injectors, and magnetos from New Chicago rail foundries. Vital for Blackwater oil derricks and mining pumps.",
+  },
+
+  // --- MELEE WEAPONS ---
   rusty_machete: {
     id: "rusty_machete",
     name: "Rusty Cleaver Machete",
@@ -153,6 +191,74 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
       reloadAp: 0,
     },
   },
+  cavalry_saber: {
+    id: "cavalry_saber",
+    name: "US Cavalry Officer Saber",
+    category: "weapon",
+    weightKg: 1.8,
+    basePrice: 165,
+    description:
+      "Tempered high-carbon steel saber from old frontier forts. Swift, balanced, and lethal in close-quarters dueling.",
+    weaponStats: {
+      weaponId: "cavalry_saber",
+      minDamage: 18,
+      maxDamage: 27,
+      optimalRangeTiles: 1,
+      maxRangeTiles: 1,
+      snapShotAp: 3,
+      aimedShotAp: null,
+      baseAccuracy: 90,
+      ammoType: null,
+      magazineSize: 0,
+      reloadAp: 0,
+    },
+  },
+  sledgehammer: {
+    id: "sledgehammer",
+    name: "Leadville Mining Sledge",
+    category: "weapon",
+    weightKg: 4.5,
+    basePrice: 210,
+    description:
+      "Two-handed forged iron maul used to crack boulders and armored raiders alike. Slow swing, bone-crushing impact.",
+    weaponStats: {
+      weaponId: "sledgehammer",
+      minDamage: 26,
+      maxDamage: 40,
+      optimalRangeTiles: 1,
+      maxRangeTiles: 1,
+      snapShotAp: 4,
+      aimedShotAp: null,
+      baseAccuracy: 82,
+      ammoType: null,
+      magazineSize: 0,
+      reloadAp: 0,
+    },
+  },
+
+  // --- PISTOLS & REVOLVERS ---
+  derringer_22: {
+    id: "derringer_22",
+    name: "Gambler's .22 Derringer",
+    category: "weapon",
+    weightKg: 0.5,
+    basePrice: 110,
+    description:
+      "Tiny two-shot vest pocket pistol favored by saloon cardsharps. Ultra-low 2 AP cost for rapid close-range shots.",
+    weaponStats: {
+      weaponId: "derringer_22",
+      minDamage: 9,
+      maxDamage: 15,
+      optimalRangeTiles: 3,
+      maxRangeTiles: 5,
+      snapShotAp: 2,
+      aimedShotAp: 4,
+      baseAccuracy: 68,
+      ammoType: "ammo_22",
+      magazineSize: 2,
+      reloadAp: 2,
+    },
+  },
   revolver_38: {
     id: "revolver_38",
     name: "Frontier .38 Revolver",
@@ -172,6 +278,120 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
       baseAccuracy: 72,
       ammoType: "ammo_38",
       magazineSize: 6,
+      reloadAp: 2,
+    },
+  },
+  peacemaker_45: {
+    id: "peacemaker_45",
+    name: "Colt .45 Peacemaker",
+    category: "weapon",
+    weightKg: 1.4,
+    basePrice: 460,
+    description:
+      "Heavy-frame single-action .45 Colt revolver. The iconic sidearm of Tombstone marshals and veteran trail bosses.",
+    weaponStats: {
+      weaponId: "peacemaker_45",
+      minDamage: 22,
+      maxDamage: 34,
+      optimalRangeTiles: 6,
+      maxRangeTiles: 9,
+      snapShotAp: 3,
+      aimedShotAp: 5,
+      baseAccuracy: 76,
+      ammoType: "ammo_45",
+      magazineSize: 6,
+      reloadAp: 2,
+    },
+  },
+
+  // --- SHOTGUNS ---
+  coach_shotgun_12g: {
+    id: "coach_shotgun_12g",
+    name: "Double-Barrel Coach Gun",
+    category: "weapon",
+    weightKg: 3.4,
+    basePrice: 490,
+    description:
+      "Sawed-off 12-gauge scattergun. Devastating stopping power against raiders charging your wagon.",
+    weaponStats: {
+      weaponId: "coach_shotgun_12g",
+      minDamage: 30,
+      maxDamage: 46,
+      optimalRangeTiles: 3,
+      maxRangeTiles: 5,
+      snapShotAp: 4,
+      aimedShotAp: 5,
+      baseAccuracy: 80,
+      ammoType: "ammo_12g",
+      magazineSize: 2,
+      reloadAp: 2,
+    },
+  },
+  pump_shotgun_12g: {
+    id: "pump_shotgun_12g",
+    name: "Trench 12G Pump Shotgun",
+    category: "weapon",
+    weightKg: 3.9,
+    basePrice: 740,
+    description:
+      "Tubular-magazine repeating 12-gauge riot shotgun from New Chicago armories. Holds 6 shells of close-range devastation.",
+    weaponStats: {
+      weaponId: "pump_shotgun_12g",
+      minDamage: 32,
+      maxDamage: 48,
+      optimalRangeTiles: 4,
+      maxRangeTiles: 6,
+      snapShotAp: 4,
+      aimedShotAp: 5,
+      baseAccuracy: 82,
+      ammoType: "ammo_12g",
+      magazineSize: 6,
+      reloadAp: 3,
+    },
+  },
+
+  // --- RIFLES & SMGS ---
+  varmint_rifle_22: {
+    id: "varmint_rifle_22",
+    name: "Prairie .22 Varmint Rifle",
+    category: "weapon",
+    weightKg: 2.6,
+    basePrice: 195,
+    description:
+      "Light bolt-action small-game rifle with crisp iron sights. Cheap to shoot and accurate for novice marksmen.",
+    weaponStats: {
+      weaponId: "varmint_rifle_22",
+      minDamage: 13,
+      maxDamage: 20,
+      optimalRangeTiles: 7,
+      maxRangeTiles: 10,
+      snapShotAp: 3,
+      aimedShotAp: 5,
+      baseAccuracy: 76,
+      ammoType: "ammo_22",
+      magazineSize: 8,
+      reloadAp: 2,
+    },
+  },
+  lever_repeater_38: {
+    id: "lever_repeater_38",
+    name: "Winchester .38 Lever Repeater",
+    category: "weapon",
+    weightKg: 3.3,
+    basePrice: 360,
+    description:
+      "Classic saddle-ring lever-action rifle sharing .38 Special ammo with frontier revolvers. High tube capacity and fast cycling.",
+    weaponStats: {
+      weaponId: "lever_repeater_38",
+      minDamage: 19,
+      maxDamage: 28,
+      optimalRangeTiles: 7,
+      maxRangeTiles: 10,
+      snapShotAp: 3,
+      aimedShotAp: 5,
+      baseAccuracy: 77,
+      ammoType: "ammo_38",
+      magazineSize: 10,
       reloadAp: 2,
     },
   },
@@ -197,25 +417,25 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
       reloadAp: 2,
     },
   },
-  coach_shotgun_12g: {
-    id: "coach_shotgun_12g",
-    name: "Double-Barrel Coach Gun",
+  grease_smg_9mm: {
+    id: "grease_smg_9mm",
+    name: "M3 'Grease Gun' 9mm SMG",
     category: "weapon",
-    weightKg: 3.4,
-    basePrice: 490,
+    weightKg: 3.6,
+    basePrice: 680,
     description:
-      "Sawed-off 12-gauge scattergun. Devastating stopping power against raiders charging your wagon.",
+      "Stamped-steel submachine gun favored by New Chicago rail syndicates. High magazine capacity and low AP cost.",
     weaponStats: {
-      weaponId: "coach_shotgun_12g",
-      minDamage: 30,
-      maxDamage: 46,
-      optimalRangeTiles: 3,
-      maxRangeTiles: 5,
-      snapShotAp: 4,
-      aimedShotAp: 5,
-      baseAccuracy: 80,
-      ammoType: "ammo_12g",
-      magazineSize: 2,
+      weaponId: "grease_smg_9mm",
+      minDamage: 20,
+      maxDamage: 31,
+      optimalRangeTiles: 5,
+      maxRangeTiles: 8,
+      snapShotAp: 3,
+      aimedShotAp: 4,
+      baseAccuracy: 74,
+      ammoType: "ammo_9mm",
+      magazineSize: 15,
       reloadAp: 2,
     },
   },
@@ -241,13 +461,69 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
       reloadAp: 2,
     },
   },
+  sniper_rifle_762: {
+    id: "sniper_rifle_762",
+    name: "M24 7.62mm Sniper Rifle",
+    category: "weapon",
+    weightKg: 4.6,
+    basePrice: 1350,
+    description:
+      "Long-barrel scoped precision rifle from pre-collapse military vaults. Unmatched range and lethal headshot capability.",
+    weaponStats: {
+      weaponId: "sniper_rifle_762",
+      minDamage: 36,
+      maxDamage: 54,
+      optimalRangeTiles: 11,
+      maxRangeTiles: 14,
+      snapShotAp: 4,
+      aimedShotAp: 6,
+      baseAccuracy: 88,
+      ammoType: "ammo_762",
+      magazineSize: 5,
+      reloadAp: 3,
+    },
+  },
+
+  // --- AMMUNITION (8 CALIBERS) ---
+  ammo_22: {
+    id: "ammo_22",
+    name: ".22 Rimfire Cartridge",
+    category: "ammo",
+    weightKg: 0.01,
+    basePrice: 6,
+    description: "Light rimfire round for pocket derringers and prairie varmint rifles.",
+  },
   ammo_38: {
     id: "ammo_38",
     name: ".38 Special Round",
     category: "ammo",
     weightKg: 0.03,
     basePrice: 11,
-    description: "Standard revolver cartridge.",
+    description: "Standard frontier cartridge for .38 revolvers and lever-action repeaters.",
+  },
+  ammo_9mm: {
+    id: "ammo_9mm",
+    name: "9mm Parabellum Round",
+    category: "ammo",
+    weightKg: 0.03,
+    basePrice: 14,
+    description: "Centerfire cartridge used in M3 Grease Gun submachine guns.",
+  },
+  ammo_45: {
+    id: "ammo_45",
+    name: ".45 Colt Heavy Round",
+    category: "ammo",
+    weightKg: 0.04,
+    basePrice: 15,
+    description: "Heavy-grain lead slug for Colt .45 Peacemaker revolvers.",
+  },
+  ammo_12g: {
+    id: "ammo_12g",
+    name: "12-Gauge Buckshot Shell",
+    category: "ammo",
+    weightKg: 0.06,
+    basePrice: 16,
+    description: "Heavy lead buckshot shell for coach guns and pump-action trench shotguns.",
   },
   ammo_308: {
     id: "ammo_308",
@@ -257,21 +533,21 @@ export const ITEMS: Record<ItemId, ItemDefinition> = {
     basePrice: 18,
     description: "High-powered brass rifle round. Make every shot count.",
   },
-  ammo_12g: {
-    id: "ammo_12g",
-    name: "12-Gauge Buckshot Shell",
-    category: "ammo",
-    weightKg: 0.06,
-    basePrice: 16,
-    description: "Heavy lead buckshot shell for coach guns.",
-  },
   ammo_556: {
     id: "ammo_556",
     name: "5.56mm Military Round",
     category: "ammo",
     weightKg: 0.04,
     basePrice: 24,
-    description: "Rare high-velocity carbine ammunition.",
+    description: "High-velocity military carbine ammunition.",
+  },
+  ammo_762: {
+    id: "ammo_762",
+    name: "7.62mm Match Grade Round",
+    category: "ammo",
+    weightKg: 0.06,
+    basePrice: 32,
+    description: "Precision long-range brass cartridge for 7.62mm sniper rifles.",
   },
 };
 
@@ -296,11 +572,31 @@ export const TRANSPORTS: Record<TransportId, TransportDefinition> = {
       rocky_canyon: 0.9,
     },
   },
+  hand_cart: {
+    id: "hand_cart",
+    name: "Wooden Handcart",
+    propulsion: "human",
+    maxCargoKg: 65,
+    baseSpeedKmh: 3.7,
+    price: 120,
+    waterPerDay: 0,
+    foragePerDay: 0,
+    fuelLitersPer10Km: 0,
+    availableInTiers: ["frontier_town", "major_city"],
+    description:
+      "A two-wheel wooden pushcart pulled by hand.Nearly doubles personal capacity with zero animal feed or fuel costs.",
+    terrainSpeedMultipliers: {
+      old_highway: 1.05,
+      scorched_flats: 0.9,
+      sand_dunes: 0.65,
+      rocky_canyon: 0.8,
+    },
+  },
   old_donkey: {
     id: "old_donkey",
     name: "Grandfather's Pack Donkey",
     propulsion: "animal",
-    maxCargoKg: 85,
+    maxCargoKg: 90,
     baseSpeedKmh: 5.8,
     price: 260,
     waterPerDay: 2,
@@ -308,7 +604,7 @@ export const TRANSPORTS: Record<TransportId, TransportDefinition> = {
     fuelLitersPer10Km: 0,
     availableInTiers: ["frontier_town"],
     description:
-      "Stubborn, sure-footed, and frugal. Carries saddlebags across rocky canyons and dunes without complaint.",
+      "Stubborn, sure-footed, and frugal. Carries 90 kg of saddlebags across rocky canyons and dunes without complaint.",
     terrainSpeedMultipliers: {
       old_highway: 1.05,
       scorched_flats: 1.0,
@@ -316,11 +612,31 @@ export const TRANSPORTS: Record<TransportId, TransportDefinition> = {
       rocky_canyon: 1.0,
     },
   },
+  pack_mule_team: {
+    id: "pack_mule_team",
+    name: "Twin Pack Mules",
+    propulsion: "animal",
+    maxCargoKg: 165,
+    baseSpeedKmh: 6.4,
+    price: 490,
+    waterPerDay: 3.5,
+    foragePerDay: 3.5,
+    fuelLitersPer10Km: 0,
+    availableInTiers: ["frontier_town"],
+    description:
+      "A matched pair of hardy mountain mules with leather pack frames. Excels in rocky canyons where wheeled carts struggle.",
+    terrainSpeedMultipliers: {
+      old_highway: 1.08,
+      scorched_flats: 1.02,
+      sand_dunes: 0.9,
+      rocky_canyon: 1.05,
+    },
+  },
   wooden_cart_donkey: {
     id: "wooden_cart_donkey",
     name: "Two-Wheel Cart + Donkey",
     propulsion: "animal",
-    maxCargoKg: 210,
+    maxCargoKg: 240,
     baseSpeedKmh: 4.8,
     price: 680,
     waterPerDay: 3,
@@ -328,7 +644,7 @@ export const TRANSPORTS: Record<TransportId, TransportDefinition> = {
     fuelLitersPer10Km: 0,
     availableInTiers: ["frontier_town"],
     description:
-      "A creaking timber cart hitched to your donkey. Triples cargo capacity for bulk grain and hides, though slower in deep sand.",
+      "A creaking timber cart hitched to your donkey. Hauls 240 kg of bulk grain, ore, and hides, though slower in deep sand.",
     terrainSpeedMultipliers: {
       old_highway: 1.15,
       scorched_flats: 0.95,
@@ -340,7 +656,7 @@ export const TRANSPORTS: Record<TransportId, TransportDefinition> = {
     id: "heavy_wagon_horse",
     name: "Prairie Wagon + Draft Horse",
     propulsion: "animal",
-    maxCargoKg: 460,
+    maxCargoKg: 480,
     baseSpeedKmh: 8.5,
     price: 1650,
     waterPerDay: 6,
@@ -356,11 +672,31 @@ export const TRANSPORTS: Record<TransportId, TransportDefinition> = {
       rocky_canyon: 0.85,
     },
   },
+  brahmin_freight_wagon: {
+    id: "brahmin_freight_wagon",
+    name: "Twin-Headed Ox Freight Wagon",
+    propulsion: "animal",
+    maxCargoKg: 780,
+    baseSpeedKmh: 6.5,
+    price: 2650,
+    waterPerDay: 9,
+    foragePerDay: 8,
+    fuelLitersPer10Km: 0,
+    availableInTiers: ["frontier_town", "major_city"],
+    description:
+      "Heavy iron-rimmed Conestoga freighter pulled by mutant two-headed oxen from Tombstone Crossing. Hauls 780 kg without needing Gasoline.",
+    terrainSpeedMultipliers: {
+      old_highway: 1.18,
+      scorched_flats: 1.0,
+      sand_dunes: 0.78,
+      rocky_canyon: 0.82,
+    },
+  },
   scrap_motorcycle: {
     id: "scrap_motorcycle",
     name: "Wasteland Scrambler Bike",
     propulsion: "motor",
-    maxCargoKg: 135,
+    maxCargoKg: 140,
     baseSpeedKmh: 26.0,
     price: 3100,
     waterPerDay: 0,
@@ -368,7 +704,7 @@ export const TRANSPORTS: Record<TransportId, TransportDefinition> = {
     fuelLitersPer10Km: 0.8,
     availableInTiers: ["major_city"],
     description:
-      "Built in Saint Louis machine shops. Outruns almost any raider pack, consumes zero food when parked, but requires scarce Gasoline.",
+      "Built in Saint Louis machine shops. Outruns almost any raider pack, consumes zero food when parked, and carries 140 kg.",
     terrainSpeedMultipliers: {
       old_highway: 1.35,
       scorched_flats: 1.1,
@@ -376,11 +712,31 @@ export const TRANSPORTS: Record<TransportId, TransportDefinition> = {
       rocky_canyon: 0.9,
     },
   },
+  desert_dune_buggy: {
+    id: "desert_dune_buggy",
+    name: "V6 Interceptor Buggy",
+    propulsion: "motor",
+    maxCargoKg: 380,
+    baseSpeedKmh: 32.0,
+    price: 4650,
+    waterPerDay: 0,
+    foragePerDay: 0,
+    fuelLitersPer10Km: 1.3,
+    availableInTiers: ["major_city"],
+    description:
+      "Long-travel suspension roll-cage buggy with paddle tires. Flies across sand dunes and scorched flats with 380 kg of cargo.",
+    terrainSpeedMultipliers: {
+      old_highway: 1.3,
+      scorched_flats: 1.25,
+      sand_dunes: 1.1,
+      rocky_canyon: 0.95,
+    },
+  },
   armored_pickup: {
     id: "armored_pickup",
     name: "New Denver V8 Cargo Truck",
     propulsion: "motor",
-    maxCargoKg: 1100,
+    maxCargoKg: 1200,
     baseSpeedKmh: 36.0,
     price: 6400,
     waterPerDay: 0,
@@ -388,7 +744,7 @@ export const TRANSPORTS: Record<TransportId, TransportDefinition> = {
     fuelLitersPer10Km: 2.0,
     availableInTiers: ["major_city"],
     description:
-      "The pinnacle of merchant power. Hauls over a metric ton at highway speeds, available only in metropolitan hubs.",
+      "The pinnacle of merchant power. Hauls 1,200 kg at highway speeds, available only in metropolitan industrial hubs.",
     terrainSpeedMultipliers: {
       old_highway: 1.4,
       scorched_flats: 1.15,
@@ -405,7 +761,7 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
     tier: "frontier_town",
     subtitle: "Humble Frontier Farming & Well Settlement",
     lore: "A sun-baked cluster of wooden shacks built around a deep artesian well where your grandfather spent his final years. Water, corn, and donkey forage are cheap here, but manufactured tools and leather fetch high prices.",
-    coordinates: { x: 160, y: 520 },
+    coordinates: { x: 140, y: 480 },
     produces: ["water", "food_rations", "animal_forage"],
     demands: ["raw_leather", "tools", "antibiotics"],
     priceMultipliers: {
@@ -418,15 +774,18 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
       salt: 0.9,
     },
     baseStock: {
-      water: 80,
+      water: 85,
       food_rations: 65,
-      animal_forage: 90,
+      animal_forage: 95,
       salt: 18,
       raw_leather: 4,
-      field_bandage: 8,
+      field_bandage: 10,
       rusty_machete: 3,
-      ammo_38: 16,
-      ammo_308: 10,
+      derringer_22: 2,
+      varmint_rifle_22: 2,
+      ammo_22: 35,
+      ammo_38: 18,
+      ammo_308: 12,
     },
     strictContrabandCheck: false,
     npcs: {
@@ -435,22 +794,22 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         name: "Silas Miller",
         title: "Dust Creek General Storekeeper",
         greeting:
-          "Your granddaddy was an honest man, kid. Kept that old .308 oiled till his last breath. If you're heading northeast to Deadwood Gulch, pack extra water — their cattle wells ran brackish.",
+          "Your granddaddy was an honest man, kid. Kept that old .308 oiled till his last breath. If you're heading northeast to Deadwood Gulch or south to Tombstone Crossing, pack extra water.",
         loreDialogue:
-          "We pump clean water and grow dry corn, and that's about all Dust Creek has to its name. Bring us cured leather from Deadwood or machinist tools from the big eastern cities and I'll pay you handsomely.",
+          "We pump clean water and grow dry corn, and that's about all Dust Creek has to its name. Bring us cured leather from Deadwood or machinist tools from the eastern cities and I'll pay you handsomely.",
         tipDialogue:
-          "Buy Water and Forage here while it's dirt cheap. Ranchers in Deadwood Gulch will pay double for clean water, and you can bring back their Raw Leather.",
+          "Buy Water and Forage here while it's dirt cheap. Ranchers in Deadwood Gulch and Tombstone Crossing pay premium prices for clean water.",
       },
       transport_master: {
         role: "transport_master",
         name: "Old Barnaby",
         title: "Corral & Cart Wright",
         greeting:
-          "That old donkey of your grandpa's still has sturdy legs! Once you've turned a few hundred dollars profit, come back and I'll hitch a two-wheel timber cart to him.",
+          "That old donkey of your grandpa's still has sturdy legs! Once you've turned a few hundred dollars profit, come back for Twin Pack Mules or a Two-Wheel Cart.",
         loreDialogue:
-          "Don't go dreaming of gasoline motors out here in the scrublands. A donkey eats dry grass and never blows a head gasket.",
+          "Don't go dreaming of gasoline motors out here in the scrublands. Donkeys and mules eat dry grass and never blow a head gasket.",
         tipDialogue:
-          "Upgrading from a Pack Donkey (85 kg) to a Two-Wheel Cart (210 kg) lets you haul bulk commodities, though it slows you down a touch in deep sand.",
+          "Upgrading from a Pack Donkey (90 kg) to Twin Pack Mules (165 kg) or a Two-Wheel Cart (240 kg) lets you haul heavy bulk cargo.",
       },
       sheriff: {
         role: "sheriff",
@@ -459,9 +818,9 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         greeting:
           "Keep your rifle loaded on the trail, merchant. Scavengers have been sniffing around the creek road ever since the dry season started.",
         loreDialogue:
-          "Out here on the frontier, we don't care if you haul canyon moonshine. Just don't try sneaking it past the blue-coat inspectors in Saint Louis or New Denver unless you've got a silver tongue.",
+          "Out here on the frontier, we don't care if you haul canyon moonshine. Just don't try sneaking it past the blue-coat inspectors in Saint Louis, New Denver, or New Chicago.",
         tipDialogue:
-          "Check my Bounty Board whenever you feel ready for a fight. Eliminating a gang leader makes that trade route safer for everyone.",
+          "Use Headshots on unarmored raiders for 1.75x damage, or Legshots on fast melee chargers to cut their movement AP in half!",
       },
       saloon_barkeep: {
         role: "saloon_barkeep",
@@ -482,30 +841,35 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
     name: "Deadwood Gulch",
     tier: "frontier_town",
     subtitle: "Old West Cattle Ranching & Tannery Outpost",
-    lore: "A rugged stockyard town smelling of woodsmoke, curing hides, and horse manure. Wranglers here raise the finest draft horses and tan heavy leather, but they are chronically short on clean water and ammunition.",
-    coordinates: { x: 340, y: 270 },
-    produces: ["raw_leather", "smoked_jerky"],
-    demands: ["water", "salt", "ammo_308", "ammo_38"],
+    lore: "A rugged stockyard town smelling of woodsmoke, curing hides, and horse manure. Wranglers here raise the finest draft horses, distill oak-aged whiskey, and tan heavy leather, but they are chronically short on clean water and ammunition.",
+    coordinates: { x: 330, y: 230 },
+    produces: ["raw_leather", "smoked_jerky", "whiskey_barrel"],
+    demands: ["water", "salt", "ammo_308", "ammo_38", "tools"],
     priceMultipliers: {
       raw_leather: 0.58,
       smoked_jerky: 0.62,
+      whiskey_barrel: 0.68,
       water: 1.65,
       salt: 1.55,
       ammo_308: 1.5,
       ammo_38: 1.45,
+      tools: 1.4,
       animal_forage: 0.8,
     },
     baseStock: {
       raw_leather: 45,
       smoked_jerky: 50,
+      whiskey_barrel: 22,
       animal_forage: 40,
       water: 14,
       food_rations: 25,
       field_bandage: 10,
-      revolver_38: 2,
+      cavalry_saber: 2,
+      revolver_38: 3,
+      lever_repeater_38: 2,
       coach_shotgun_12g: 2,
-      ammo_38: 12,
-      ammo_12g: 14,
+      ammo_38: 18,
+      ammo_12g: 16,
     },
     strictContrabandCheck: false,
     npcs: {
@@ -514,11 +878,11 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         name: "Boone Callahan",
         title: "Gulch Hide & Provision Factor",
         greeting:
-          "If you brought clean water or desert salt, unload it right now! My tanners are parched and we've got stacks of Cured Leather ready to ship east to Saint Louis.",
+          "If you brought clean water or desert salt, unload it right now! My tanners are parched and we've got stacks of Cured Leather and Oak Whiskey Casks ready to ship.",
         loreDialogue:
-          "The aristocrats in Saint Louis love our leather for their boots and upholstery, and the miners in Leadville Shaft can't work without our Smoked Jerky.",
+          "The aristocrats in Saint Louis love our leather for their boots and upholstery, and the miners in Leadville Shaft can't work without our Smoked Jerky and Whiskey.",
         tipDialogue:
-          "Load up on Raw Leather and Smoked Jerky here. Sell the Jerky at Leadville Shaft or New Denver, and take the Leather to Saint Louis for massive margins.",
+          "Load up on Raw Leather, Smoked Jerky, and Whiskey Barrels here. Sell the Jerky at Leadville Shaft, and take the Leather east to Saint Louis.",
       },
       transport_master: {
         role: "transport_master",
@@ -527,9 +891,9 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         greeting:
           "A donkey's fine for a peddler, friend, but a true caravan master rides behind a Deadwood Draft Horse pulling a Prairie Wagon!",
         loreDialogue:
-          "Our horses drink more water than a mule, sure, but they haul 460 kilos at a brisk trot down the Old Highway.",
+          "Our horses drink more water than a mule, sure, but they haul 480 kilos at a brisk trot down the Old Highway.",
         tipDialogue:
-          "Save $1,650 for the Prairie Wagon + Draft Horse. It's the best non-fuel transport in the territory.",
+          "Save $1,650 for the Prairie Wagon + Draft Horse, or $2,650 for the massive Twin-Headed Ox Freight Wagon.",
       },
       sheriff: {
         role: "sheriff",
@@ -540,7 +904,7 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         loreDialogue:
           "Keep an eye on your ammo reserves. Out here, a man with an empty rifle is just a walking loot crate.",
         tipDialogue:
-          "In combat, position your units behind rocks or your own wagon. Cover cuts the enemy's hit chance by 25% to 45%.",
+          "In combat, crouch behind rocks or your own wagon to boost defense against enemy gunfire.",
       },
       saloon_barkeep: {
         role: "saloon_barkeep",
@@ -551,7 +915,7 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         loreDialogue:
           "Lots of drifters pass between the mines of Leadville and the river docks of Saint Louis.",
         tipDialogue:
-          "Shotguns cost 4 AP to fire and wreck raiders up close, while your Grandfather's .308 Rifle dominates at 8 to 10 tiles.",
+          "The Winchester .38 Lever Repeater shares .38 Special ammo with your Frontier Revolver — great for simplifying your ammo logistics.",
       },
     },
   },
@@ -561,28 +925,47 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
     name: "Leadville Shaft",
     tier: "frontier_town",
     subtitle: "Canyon Lead Mine & Munitions Foundry",
-    lore: "Carved into a jagged red-rock canyon, Leadville's blasts echo day and night. Miners smelt scrap steel and hand-press .38 and .308 cartridges, working up a fierce thirst for food, clean water, and illicit moonshine.",
-    coordinates: { x: 520, y: 580 },
-    produces: ["scrap_metal", "ammo_38", "ammo_308", "ammo_12g", "moonshine"],
-    demands: ["smoked_jerky", "food_rations", "water", "antibiotics"],
+    lore: "Carved into a jagged red-rock canyon, Leadville's blasts echo day and night. Miners smelt scrap steel and copper ore while hand-pressing cartridges, working up a fierce thirst for jerky, canned beef, and whiskey.",
+    coordinates: { x: 520, y: 540 },
+    produces: [
+      "scrap_metal",
+      "copper_ore",
+      "ammo_22",
+      "ammo_38",
+      "ammo_45",
+      "ammo_308",
+      "ammo_12g",
+      "moonshine",
+    ],
+    demands: ["smoked_jerky", "canned_beef", "food_rations", "water", "antibiotics", "whiskey_barrel"],
     priceMultipliers: {
       scrap_metal: 0.55,
+      copper_ore: 0.56,
+      ammo_22: 0.65,
       ammo_38: 0.65,
+      ammo_45: 0.68,
       ammo_308: 0.68,
       ammo_12g: 0.7,
       moonshine: 0.6,
       smoked_jerky: 1.55,
+      canned_beef: 1.55,
       food_rations: 1.5,
       water: 1.6,
       antibiotics: 1.65,
+      whiskey_barrel: 1.45,
     },
     baseStock: {
-      scrap_metal: 60,
-      ammo_38: 80,
-      ammo_308: 65,
-      ammo_12g: 55,
-      moonshine: 30,
+      scrap_metal: 65,
+      copper_ore: 55,
+      ammo_22: 90,
+      ammo_38: 85,
+      ammo_45: 60,
+      ammo_308: 70,
+      ammo_12g: 60,
+      moonshine: 32,
+      sledgehammer: 4,
       revolver_38: 4,
+      lever_repeater_38: 3,
       bolt_rifle_308: 3,
       coach_shotgun_12g: 3,
       water: 12,
@@ -596,22 +979,22 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         name: "Gideon 'Slag' Vance",
         title: "Foundry Quartermaster & Gunsmith",
         greeting:
-          "You smell like fresh air and trail dust! Did you bring Smoked Jerky or Antibiotics for the pit crews? We've got crates of Salvaged Steel and fresh-pressed brass ammo ready to deal.",
+          "You smell like fresh air and trail dust! Did you bring Smoked Jerky, Canned Beef, or Antibiotics for the pit crews? We've got Salvaged Steel, Copper Ore, and fresh-pressed brass ammo ready to deal.",
         loreDialogue:
-          "Every bullet fired between Dust Creek and New Denver starts as lead pulled from our shaft. We also distill Canyon Moonshine in the back tunnels — totally legal here, wildly profitable if you smuggle it into New Denver.",
+          "Every bullet fired between Dust Creek and New Chicago starts as lead and copper pulled from our shaft. We also distill Canyon Moonshine in the back tunnels.",
         tipDialogue:
-          "Always restock your .308 and .38 ammunition here in Leadville Shaft where it's 35% cheaper than anywhere else.",
+          "Haul Smelted Copper Ore and Salvaged Steel from here to New Chicago or Saint Louis for massive industrial profits.",
       },
       transport_master: {
         role: "transport_master",
         name: "Hector Ironwheel",
         title: "Mine Muleteer",
         greeting:
-          "The canyon road is Murder on wooden spokes, merchant. Watch your cargo weight when climbing out of the shaft with heavy steel ingots!",
+          "The canyon road is murder on wooden spokes, merchant. Watch your cargo weight when climbing out of the shaft with heavy steel and copper ingots!",
         loreDialogue:
-          "Each Salvaged Steel ingot weighs 4 kg. Don't overload your cart past 70% capacity unless you're ready for a slower crawl.",
+          "Twin Pack Mules handle rocky canyons better than any two-wheel cart.",
         tipDialogue:
-          "If raiders catch you while hauling heavy steel, remember you can Jettison (dump) a few ingots to regain top speed and flee.",
+          "If raiders catch you while hauling heavy ore, remember you can Jettison a few ingots to regain top speed and flee.",
       },
       sheriff: {
         role: "sheriff",
@@ -620,7 +1003,7 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         greeting:
           "Dynamite thieves and canyon ambushes are my daily headache. Help me clear the rocky pass and the Miners' Guild pays cold hard script.",
         loreDialogue:
-          "Use Aimed Shots when fighting armored raiders in the canyon. Costs more AP, but the extra accuracy saves precious brass.",
+          "Use Aimed Shots or Headshots when fighting armored raiders in the canyon. Costs more AP, but the extra accuracy and crit multiplier save precious brass.",
         tipDialogue:
           "High Perception boosts your accuracy on every single ranged shot.",
       },
@@ -631,7 +1014,7 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         greeting:
           "Miners drink hard when they survive a shift. Want to buy a rumor on where the next supply shortage hit, or hire an ex-pit guard?",
         loreDialogue:
-          "The rich folks in New Denver pretend they don't drink our Canyon Moonshine, yet they pay double for every jug that slips past their Sheriff.",
+          "The rich folks in New Denver and New Chicago pretend they don't drink our Canyon Moonshine, yet they pay double for every jug that slips past their gates.",
         tipDialogue:
           "Charisma not only improves trade prices at every shop, it helps you bluff city gate inspectors when carrying Contraband.",
       },
@@ -643,27 +1026,30 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
     name: "Blackwater Rig",
     tier: "frontier_town",
     subtitle: "Scorched Desert Oil Derrick & Refinery",
-    lore: "Rising from the salt flats like an iron skeleton, Blackwater Rig pumps and distills the last accessible crude oil in the region. Gasoline is cheap here, but there isn't a blade of grass or drop of fresh water for miles.",
-    coordinates: { x: 640, y: 230 },
+    lore: "Rising from the salt flats like an iron skeleton, Blackwater Rig pumps and distills the last accessible crude oil in the region. Gasoline is cheap here, but the rigs desperately need New Chicago Engine Parts and clean Water.",
+    coordinates: { x: 620, y: 220 },
     produces: ["gasoline", "salt"],
-    demands: ["water", "food_rations", "raw_leather", "tools"],
+    demands: ["water", "food_rations", "diesel_parts", "raw_leather", "tools"],
     priceMultipliers: {
       gasoline: 0.52,
       salt: 0.55,
       water: 1.85,
       food_rations: 1.65,
       animal_forage: 1.75,
+      diesel_parts: 1.65,
       raw_leather: 1.4,
       tools: 1.45,
     },
     baseStock: {
-      gasoline: 110,
-      salt: 70,
+      gasoline: 120,
+      salt: 75,
       tools: 8,
       water: 10,
       food_rations: 12,
       animal_forage: 8,
       field_bandage: 10,
+      derringer_22: 3,
+      revolver_38: 2,
       ammo_38: 25,
       ammo_12g: 20,
     },
@@ -671,25 +1057,25 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
     npcs: {
       general_trader: {
         role: "general_trader",
-        name: "oilman Jedediah Clamp",
+        name: "Oilman Jedediah Clamp",
         title: "Refinery Commissary Boss",
         greeting:
-          "Welcome to the hottest furnace on earth, traveler! Bring us Water and Rations so my roughnecks don't keel over, and I'll fill your jerrycans with pure Refined Gasoline at half price.",
+          "Welcome to the hottest furnace on earth, traveler! Bring us Water, Rations, and Precision Engine Parts so my roughnecks and drill heads don't seize up, and I'll fill your tanks with Refined Gasoline at half price.",
         loreDialogue:
-          "The aristocrats in Saint Louis and New Denver can't run their precious motorcycles and V8 trucks without Blackwater fuel. Buy it here for $20 a liter, sell it at their gates for $55!",
+          "The metropolises of Saint Louis, New Denver, and New Chicago can't run their motorcycles, buggies, and V8 trucks without Blackwater fuel.",
         tipDialogue:
-          "Warning: The sand dunes around Blackwater Rig increase daily water consumption. Never travel here without extra water reserves!",
+          "Bring Precision Engine Parts from New Chicago to Blackwater Rig, then haul cheap Gasoline back to the cities for a lucrative two-way loop!",
       },
       transport_master: {
         role: "transport_master",
         name: "Grease-Monkey Sparks",
         title: "Rig Pump & Motor Tech",
         greeting:
-          "Still riding behind a four-legged hay-burner? Once you buy a Motorcycle or Pickup Truck in Saint Louis or New Denver, Blackwater Rig is your best friend for cheap fuel.",
+          "Once you buy a Scrambler Bike, V6 Buggy, or V8 Truck in the major cities, Blackwater Rig is your best friend for cheap fuel.",
         loreDialogue:
-          "We refine the gasoline here, though only the big city workshops in Saint Louis and New Denver have the chassis factories to sell complete motor vehicles.",
+          "The V6 Interceptor Buggy is a marvel on these alkali dunes — its paddle tires barely slow down in deep sand.",
         tipDialogue:
-          "Even before you own a motor vehicle, hauling barrels of Gasoline from Blackwater Rig to New Denver is one of the most lucrative trade routes in the game.",
+          "Even before you own a motor vehicle, hauling barrels of Gasoline from Blackwater Rig to New Denver or New Chicago is a goldmine.",
       },
       sheriff: {
         role: "sheriff",
@@ -698,7 +1084,7 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         greeting:
           "Fuel raiders ride out of the salt flats trying to hijack tankers. Clear 'em out and the Rig Syndicate pays top bounties.",
         loreDialogue:
-          "Out in the open flats, long-range rifles rule the battlefield. Keep your distance from shotgun raiders.",
+          "Out in the open flats, long-range rifles rule the battlefield. Keep your distance from shotgun and sledgehammer raiders.",
         tipDialogue:
           "Check the danger rating on desert routes before departing.",
       },
@@ -711,7 +1097,95 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         loreDialogue:
           "Tanker drivers always know which metropolis is paying the highest premium for fuel and medicine.",
         tipDialogue:
-          "Buy a rumor whenever you have spare cash — catching a 2.5x price spike turns a good trip into a fortune.",
+          "Buy a rumor whenever you have spare cash — catching a 2.4x price spike turns a good trip into a fortune.",
+      },
+    },
+  },
+
+  tombstone_crossing: {
+    id: "tombstone_crossing",
+    name: "Tombstone Crossing",
+    tier: "frontier_town",
+    subtitle: "Old West Frontier Livestock & Leather Hub",
+    lore: "Built around an old stone railway bridge and sprawling brahmin corrals, Tombstone Crossing is the rowdiest cowtown in the southwest. Vaqueros and gunfighters pack Stockyard Canned Beef, Cured Leather, and Oak Whiskey, while paying top dollar for Salt, Water, and .45 Colt brass.",
+    coordinates: { x: 300, y: 760 },
+    produces: ["canned_beef", "raw_leather", "whiskey_barrel", "animal_forage"],
+    demands: ["water", "salt", "tools", "antibiotics", "ammo_45"],
+    priceMultipliers: {
+      canned_beef: 0.58,
+      raw_leather: 0.6,
+      whiskey_barrel: 0.62,
+      animal_forage: 0.6,
+      water: 1.5,
+      salt: 1.6,
+      tools: 1.5,
+      antibiotics: 1.55,
+      ammo_45: 1.45,
+    },
+    baseStock: {
+      canned_beef: 60,
+      raw_leather: 50,
+      whiskey_barrel: 35,
+      animal_forage: 70,
+      smoked_jerky: 30,
+      water: 20,
+      food_rations: 30,
+      field_bandage: 12,
+      cavalry_saber: 3,
+      derringer_22: 3,
+      peacemaker_45: 4,
+      lever_repeater_38: 3,
+      coach_shotgun_12g: 3,
+      ammo_22: 40,
+      ammo_38: 35,
+      ammo_45: 30,
+      ammo_12g: 25,
+    },
+    strictContrabandCheck: false,
+    npcs: {
+      general_trader: {
+        role: "general_trader",
+        name: "Don Esteban Morales",
+        title: "Tombstone Stockyard & Cannery Baron",
+        greeting:
+          "Bienvenidos to Tombstone Crossing, caravaner! Bring my stockyards Desert Salt to cure our beef and Machinist Tools for our canning presses, and you can load your wagons with Canned Beef and Brahmin Leather at rock-bottom prices.",
+        loreDialogue:
+          "Our Stockyard Canned Beef feeds the rail crews in New Chicago and the miners in Leadville Shaft. Nothing beats sealed tin protein on a long haul.",
+        tipDialogue:
+          "Buy Canned Beef and Whiskey Barrels here, then follow the Southern Trunk Railway east to New Chicago for massive returns.",
+      },
+      transport_master: {
+        role: "transport_master",
+        name: "Buckskin Bob Pickett",
+        title: "Brahmin Ox & Wagon Drover",
+        greeting:
+          "You want real frontier hauling power? Hitch your future to a Twin-Headed Ox Freight Wagon — 780 kilos of capacity and tough enough to shrug off desert heat!",
+        loreDialogue:
+          "We breed the biggest two-headed brahmin oxen in the southwest right here in Tombstone Crossing.",
+        tipDialogue:
+          "The Twin-Headed Ox Freight Wagon ($2,650) carries 780 kg without needing expensive Gasoline — ideal for heavy ore and canned beef runs.",
+      },
+      sheriff: {
+        role: "sheriff",
+        name: "Marshal Johnny Ringo",
+        title: "Tombstone Ranger Captain",
+        greeting:
+          "Every fast-draw kid in the territory comes to Tombstone Crossing with a Colt .45 Peacemaker on his hip. Keep your iron holstered in town and save your lead for the border bandits.",
+        loreDialogue:
+          "The Colt .45 Peacemaker hits harder than a .38 revolver and only costs 3 AP for a snap shot.",
+        tipDialogue:
+          "Aim for the legs when a sledgehammer bruiser charges your firing line — crippling their legs drops their movement speed and AP!",
+      },
+      saloon_barkeep: {
+        role: "saloon_barkeep",
+        name: "Lola Montez",
+        title: "The Oriental & Birdcage Saloon",
+        greeting:
+          "Faro tables are hot and the whiskey's cold, darling. Looking to hire a Tombstone gunslinger or hear which city is starving for beef?",
+        loreDialogue:
+          "Caravans heading east to New Chicago pass through here every week with news from the Great Lakes.",
+        tipDialogue:
+          "Django 'Six-Six' Morales drinks at the back table — he's a crack shot with a .45 Peacemaker if you can afford his hiring fee.",
       },
     },
   },
@@ -721,10 +1195,10 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
     name: "Saint Louis",
     tier: "major_city",
     subtitle: "Educated Riverfront Metropolis & Medical Hub",
-    lore: "Behind brick fortifications and streetlamps, Saint Louis preserves pre-collapse universities, pharmaceutical labs, and cobblestone avenues. Wealthy merchants in tailored coats sip espresso, sell modern Antibiotics and Motorcycles, and pay dearly for frontier Raw Leather and Scrap Steel.",
-    coordinates: { x: 840, y: 490 },
+    lore: "Behind brick fortifications and streetlamps, Saint Louis preserves pre-collapse universities, pharmaceutical labs, and cobblestone avenues. Wealthy merchants in tailored coats sip espresso, sell modern Antibiotics and Motorcycles, and pay dearly for frontier Raw Leather, Copper Ore, and Scrap Steel.",
+    coordinates: { x: 800, y: 520 },
     produces: ["antibiotics", "luxury_cigars", "tools", "field_bandage"],
-    demands: ["raw_leather", "scrap_metal", "food_rations", "moonshine"],
+    demands: ["raw_leather", "scrap_metal", "copper_ore", "canned_beef", "moonshine"],
     priceMultipliers: {
       antibiotics: 0.62,
       luxury_cigars: 0.6,
@@ -732,6 +1206,8 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
       field_bandage: 0.7,
       raw_leather: 1.65,
       scrap_metal: 1.55,
+      copper_ore: 1.5,
+      canned_beef: 1.45,
       food_rations: 1.4,
       moonshine: 1.85,
       gasoline: 1.35,
@@ -745,10 +1221,15 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
       water: 50,
       food_rations: 30,
       animal_forage: 30,
+      cavalry_saber: 4,
       revolver_38: 5,
+      peacemaker_45: 4,
       bolt_rifle_308: 4,
+      grease_smg_9mm: 3,
       carbine_556: 3,
       ammo_38: 50,
+      ammo_9mm: 60,
+      ammo_45: 45,
       ammo_308: 45,
       ammo_556: 40,
     },
@@ -759,18 +1240,18 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         name: "Julian Vanderbilt III",
         title: "Director of the Saint Louis Mercantile Exchange",
         greeting:
-          "Ah, a frontier caravaner! Mind the mud on the parquet floor. If you have brought Cured Leather from Deadwood or Steel Ingots from Leadville, our guild will compensate you generously.",
+          "Ah, a frontier caravaner! Mind the mud on the parquet floor. If you have brought Cured Leather from Deadwood or Tombstone, or Copper and Steel from Leadville, our guild will compensate you generously.",
         loreDialogue:
-          "Here in Saint Louis, we maintain civilized standards — university chemists synthesize true Antibiotics, and our artisans craft fine Machinist Toolsets that frontier bumpkins desperately require.",
+          "Here in Saint Louis, we maintain civilized standards — university chemists synthesize true Antibiotics, and our artisans roll fine Reserve Cigars.",
         tipDialogue:
-          "Sell Raw Leather and Scrap Metal here, then buy Antibiotics and Tools to sell back in the frontier towns for a double-way profit loop!",
+          "Sell Raw Leather and Copper Ore here, then buy Antibiotics and Luxury Cigars to sell in the frontier towns or northern cities!",
       },
       transport_master: {
         role: "transport_master",
         name: "Chief Engineer Alistair Sterling",
         title: "Saint Louis Motorworks & Carriage Guild",
         greeting:
-          "Tired of crawling across the wasteland at five kilometers an hour behind a donkey? Behold the Wasteland Scrambler Motorcycle and the New Denver V8 Cargo Truck!",
+          "Tired of crawling across the wasteland behind a donkey? Behold the Wasteland Scrambler Motorcycle, the V6 Interceptor Buggy, and the V8 Cargo Truck!",
         loreDialogue:
           "Internal combustion is the mark of an educated merchant. Just ensure you carry sufficient Refined Gasoline before venturing back into the frontier.",
         tipDialogue:
@@ -785,7 +1266,7 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         loreDialogue:
           "Law and order separate Saint Louis from the lawless gulches of the west.",
         tipDialogue:
-          "Entering Saint Louis or New Denver with Moonshine triggers a Contraband Inspection. High Charisma lets you talk your way past the guards!",
+          "Entering Saint Louis, New Denver, or New Chicago with Moonshine triggers a Contraband Inspection. High Charisma lets you talk your way past the guards!",
       },
       saloon_barkeep: {
         role: "saloon_barkeep",
@@ -806,18 +1287,21 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
     name: "New Denver",
     tier: "major_city",
     subtitle: "Walled Industrial Capital & High-Plateau Citadel",
-    lore: "Towering steel walls protect New Denver's smokestacks, armories, and electric grid. Ruled by wealthy industrial barons and military engineers, it is the premier hub for V8 Cargo Trucks and 5.56 Carbines, with an insatiable appetite for Gasoline, Smoked Jerky, and smuggled Moonshine.",
-    coordinates: { x: 860, y: 170 },
-    produces: ["carbine_556", "ammo_556", "tools", "antibiotics"],
-    demands: ["gasoline", "smoked_jerky", "scrap_metal", "luxury_cigars", "moonshine"],
+    lore: "Towering steel walls protect New Denver's smokestacks, armories, and electric grid. Ruled by wealthy industrial barons and military engineers, it is the premier hub for V8 Cargo Trucks, 5.56 Carbines, and 7.62mm Sniper Rifles, with an insatiable appetite for Gasoline, Smoked Jerky, and smuggled Moonshine.",
+    coordinates: { x: 860, y: 160 },
+    produces: ["carbine_556", "sniper_rifle_762", "ammo_556", "ammo_762", "tools", "antibiotics"],
+    demands: ["gasoline", "smoked_jerky", "scrap_metal", "copper_ore", "luxury_cigars", "moonshine"],
     priceMultipliers: {
       tools: 0.6,
       carbine_556: 0.78,
+      sniper_rifle_762: 0.8,
       ammo_556: 0.7,
+      ammo_762: 0.72,
       antibiotics: 0.75,
       gasoline: 1.55,
       smoked_jerky: 1.6,
       scrap_metal: 1.5,
+      copper_ore: 1.52,
       luxury_cigars: 1.55,
       moonshine: 2.1,
     },
@@ -826,9 +1310,12 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
       antibiotics: 35,
       field_bandage: 50,
       carbine_556: 6,
+      sniper_rifle_762: 3,
+      pump_shotgun_12g: 4,
       coach_shotgun_12g: 4,
       bolt_rifle_308: 5,
       ammo_556: 90,
+      ammo_762: 55,
       ammo_308: 60,
       ammo_12g: 50,
       gasoline: 40,
@@ -842,7 +1329,7 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         name: "Baroness Victoria Kensington",
         title: "New Denver Armory & Industrial Syndicate",
         greeting:
-          "Time is money in New Denver, trader. Our factories require Blackwater Gasoline, Leadville Steel, and Deadwood Jerky for our workforce. In exchange, we offer military-grade 5.56 Carbines and precision tools.",
+          "Time is money in New Denver, trader. Our factories require Blackwater Gasoline, Leadville Steel & Copper, and Deadwood Jerky for our workforce. In exchange, we offer military-grade 5.56 Carbines and 7.62mm Sniper Rifles.",
         loreDialogue:
           "The frontier relies on beasts of burden, while New Denver rebuilds the modern world. Profit belongs to those who bridge the gap between the two.",
         tipDialogue:
@@ -853,22 +1340,22 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         name: "Foreman Marcus Vance",
         title: "Citadel Heavy Automotive Foundry",
         greeting:
-          "Looking at the V8 Cargo Truck? Reinforced steel bed, 1,100 kg capacity, 36 km/h cruising speed. Once you drive one of these, you own the trade routes.",
+          "Looking at the V8 Cargo Truck? Reinforced steel bed, 1,200 kg capacity, 36 km/h cruising speed. Once you drive one of these, you own the trade routes.",
         loreDialogue:
           "A V8 Truck burns 2 Liters of Gasoline per 10 km, so always keep at least 15-20 Liters in your tank before leaving the city.",
         tipDialogue:
-          "If you ever run out of Gasoline mid-journey, your vehicle stalls until you switch to foot/animal or buy emergency fuel.",
+          "If you want high speed over desert sand dunes with lighter fuel burn, check out the V6 Interceptor Buggy (380 kg).",
       },
       sheriff: {
         role: "sheriff",
-        name: " Provost Marshal Sterling Graves",
+        name: "Provost Marshal Sterling Graves",
         title: "Citadel High Command",
         greeting:
           "New Denver enforces strict customs inspections at the Northern Gate. Keep your manifest clean of contraband, or take a High Command Bounty to prove your loyalty.",
         loreDialogue:
-          "Warlord gangs along the northern highway carry automatic weapons. Do not engage them without cover and extra bandages.",
+          "Warlord gangs along the northern highway carry automatic weapons and long rifles. Do not engage them without cover and extra bandages.",
         tipDialogue:
-          "Completing high-tier bounties around New Denver pays up to $650 in reward cash.",
+          "The M24 7.62mm Sniper Rifle has an optimal range of 11 tiles — pair it with Headshots to eliminate enemy bosses before they can close in.",
       },
       saloon_barkeep: {
         role: "saloon_barkeep",
@@ -879,7 +1366,112 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
         loreDialogue:
           "All the big trade syndicates broker their deals right at these tables.",
         tipDialogue:
-          "Combine a V8 Truck with two hired mercenaries and no raider gang in the wasteland can stop your caravan.",
+          "Combine a V8 Truck with hired mercenaries and no raider gang in the wasteland can stop your caravan.",
+      },
+    },
+  },
+
+  new_chicago: {
+    id: "new_chicago",
+    name: "New Chicago",
+    tier: "major_city",
+    subtitle: "Major US Industrial & Rail Metropolis",
+    lore: "Anchored around steel blast furnaces, armored rail yards, and Lake Michigan wind turbines, New Chicago is an industrial powerhouse. Union machinists manufacture Precision Engine Parts, Pump Shotguns, and 9mm Grease Guns, while importing tons of Canned Beef, Copper Ore, Gasoline, and Oak Whiskey.",
+    coordinates: { x: 880, y: 790 },
+    produces: [
+      "diesel_parts",
+      "tools",
+      "pump_shotgun_12g",
+      "grease_smg_9mm",
+      "ammo_9mm",
+      "ammo_12g",
+    ],
+    demands: [
+      "canned_beef",
+      "copper_ore",
+      "scrap_metal",
+      "gasoline",
+      "whiskey_barrel",
+      "moonshine",
+    ],
+    priceMultipliers: {
+      diesel_parts: 0.56,
+      tools: 0.62,
+      pump_shotgun_12g: 0.75,
+      grease_smg_9mm: 0.75,
+      ammo_9mm: 0.65,
+      ammo_12g: 0.72,
+      canned_beef: 1.65,
+      copper_ore: 1.6,
+      scrap_metal: 1.5,
+      gasoline: 1.5,
+      whiskey_barrel: 1.55,
+      moonshine: 2.0,
+    },
+    baseStock: {
+      diesel_parts: 50,
+      tools: 60,
+      pump_shotgun_12g: 6,
+      grease_smg_9mm: 6,
+      carbine_556: 3,
+      sniper_rifle_762: 2,
+      peacemaker_45: 3,
+      ammo_9mm: 110,
+      ammo_12g: 85,
+      ammo_45: 50,
+      ammo_556: 50,
+      ammo_762: 35,
+      field_bandage: 45,
+      antibiotics: 25,
+      gasoline: 35,
+      water: 50,
+      food_rations: 35,
+    },
+    strictContrabandCheck: true,
+    npcs: {
+      general_trader: {
+        role: "general_trader",
+        name: "Alderman Cornelius Pullman",
+        title: "Great Lakes Rail & Foundry Consortium",
+        greeting:
+          "Welcome to the Steel City, caravan boss! Our foundry workers are hungry for Tombstone Canned Beef and thirsty for Frontier Whiskey, and our furnaces devour Leadville Copper Ore. Load up on Precision Engine Parts for your trip west!",
+        loreDialogue:
+          "New Chicago keeps the engines of the post-collapse United States turning. Every piston and injector at Blackwater Rig was milled right here in our South Side works.",
+        tipDialogue:
+          "Buy Precision Engine Parts here at 0.56x price and haul them to Blackwater Rig where they sell for 1.65x!",
+      },
+      transport_master: {
+        role: "transport_master",
+        name: "Chief Mechanic Radek Kowalski",
+        title: "Union Locomotive & Motor Yard",
+        greeting:
+          "Whether you need an armored V8 Cargo Truck for bulk steel runs or a V6 Interceptor Buggy to tear across the alkali flats, our union mechanics build 'em bulletproof.",
+        loreDialogue:
+          "Keep an eye on your payload ratio — overloading any transport past 70% capacity starts trimming your cruising speed.",
+        tipDialogue:
+          "A New Denver V8 Cargo Truck (1,200 kg) lets you haul entire foundry shipments of Copper Ore and Canned Beef in a single trip.",
+      },
+      sheriff: {
+        role: "sheriff",
+        name: "Inspector Eliot Ness",
+        title: "Untouchables Customs & Rail Bureau",
+        greeting:
+          "Legal Oak Whiskey casks are welcome in New Chicago, trader, but if my agents catch you smuggling Leadville Canyon Moonshine through the rail viaduct, we confiscate every jug and fine you hard.",
+        loreDialogue:
+          "Highway syndicates between Saint Louis and New Chicago pack 9mm Grease Guns and Trench Shotguns. Bring real firepower.",
+        tipDialogue:
+          "The Trench 12G Pump Shotgun and M3 Grease Gun are manufactured right here in New Chicago at a 25% discount.",
+      },
+      saloon_barkeep: {
+        role: "saloon_barkeep",
+        name: "Frankie 'The Cap' Torrio",
+        title: "The Green Mill Speakeasy",
+        greeting:
+          "Step out of the lake wind, pal. Down here in the Green Mill, jazz is playing, union bosses are talking market shortages, and my associates pay double for untaxed Canyon Moonshine.",
+        loreDialogue:
+          "Viktor Kovacs sits in the corner booth — best 7.62mm sniper in the Midwest if you're heading into level-4 danger zones.",
+        tipDialogue:
+          "Hiring a top-tier marksman makes hunting high-reward highway warlords much safer.",
       },
     },
   },
@@ -894,6 +1486,15 @@ export const ROUTES: RouteEdge[] = [
     terrain: "scorched_flats",
     dangerLevel: 1,
     routeLabel: "North Scrub Trail",
+  },
+  {
+    id: "route_dust_tombstone",
+    from: "dust_creek",
+    to: "tombstone_crossing",
+    distanceKm: 46,
+    terrain: "scorched_flats",
+    dangerLevel: 1,
+    routeLabel: "Mesquite Cattle Trail",
   },
   {
     id: "route_dust_leadville",
@@ -912,6 +1513,15 @@ export const ROUTES: RouteEdge[] = [
     terrain: "rocky_canyon",
     dangerLevel: 2,
     routeLabel: "Red Gorge Trail",
+  },
+  {
+    id: "route_tombstone_leadville",
+    from: "tombstone_crossing",
+    to: "leadville_shaft",
+    distanceKm: 52,
+    terrain: "rocky_canyon",
+    dangerLevel: 2,
+    routeLabel: "Silver Spur Pass",
   },
   {
     id: "route_deadwood_blackwater",
@@ -941,6 +1551,24 @@ export const ROUTES: RouteEdge[] = [
     routeLabel: "Old Route 66 East",
   },
   {
+    id: "route_tombstone_newchicago",
+    from: "tombstone_crossing",
+    to: "new_chicago",
+    distanceKm: 74,
+    terrain: "old_highway",
+    dangerLevel: 3,
+    routeLabel: "Southern Trunk Railway",
+  },
+  {
+    id: "route_leadville_newchicago",
+    from: "leadville_shaft",
+    to: "new_chicago",
+    distanceKm: 66,
+    terrain: "old_highway",
+    dangerLevel: 3,
+    routeLabel: "Cinder Rail Corridor",
+  },
+  {
     id: "route_blackwater_stlouis",
     from: "blackwater_rig",
     to: "saint_louis",
@@ -966,6 +1594,15 @@ export const ROUTES: RouteEdge[] = [
     terrain: "old_highway",
     dangerLevel: 4,
     routeLabel: "High Plains Expressway",
+  },
+  {
+    id: "route_stlouis_newchicago",
+    from: "saint_louis",
+    to: "new_chicago",
+    distanceKm: 56,
+    terrain: "old_highway",
+    dangerLevel: 4,
+    routeLabel: "Illinois River Viaduct",
   },
 ];
 
@@ -1000,6 +1637,26 @@ export const INITIAL_MARKET_EVENTS: MarketEvent[] = [
     priceMultiplier: 1.9,
     daysRemaining: 9,
   },
+  {
+    id: "evt_tombstone_salt",
+    title: "Autumn Cattle Drive in Tombstone Crossing",
+    description:
+      "Thousands of longhorns arrived at the crossing. Packing houses are paying 2.3x for Desert Salt to cure beef and hides!",
+    settlementId: "tombstone_crossing",
+    affectedItem: "salt",
+    priceMultiplier: 2.3,
+    daysRemaining: 9,
+  },
+  {
+    id: "evt_newchicago_copper",
+    title: "New Chicago Dynamo Rewiring Project",
+    description:
+      "The Rail Consortium is rebuilding its lakeside turbines. Smelted Copper Ore fetches 2.1x normal price in New Chicago!",
+    settlementId: "new_chicago",
+    affectedItem: "copper_ore",
+    priceMultiplier: 2.1,
+    daysRemaining: 11,
+  },
 ];
 
 export const INITIAL_BOUNTIES: BountyContract[] = [
@@ -1013,6 +1670,18 @@ export const INITIAL_BOUNTIES: BountyContract[] = [
     difficulty: 1,
     description:
       "Pike and his two cutthroats have been robbing water peddlers between Dust Creek and Deadwood Gulch.",
+    completed: false,
+  },
+  {
+    id: "bounty_el_coyote",
+    bossName: "Mateo 'El Coyote' Garza",
+    gangName: "Mesquite Vaquero Outlaws",
+    routeId: "route_dust_tombstone",
+    originSettlement: "tombstone_crossing",
+    rewardCash: 380,
+    difficulty: 2,
+    description:
+      "Cattle rustler ambushing beef and leather carts along the Mesquite Cattle Trail.",
     completed: false,
   },
   {
@@ -1037,6 +1706,18 @@ export const INITIAL_BOUNTIES: BountyContract[] = [
     difficulty: 4,
     description:
       "Heavily armed highway warlord hijacking gasoline shipments on Interstate 70 North.",
+    completed: false,
+  },
+  {
+    id: "bounty_capone_ralph",
+    bossName: " Frankie 'Chopper' Malone",
+    gangName: "Viaduct Iron Syndicate",
+    routeId: "route_stlouis_newchicago",
+    originSettlement: "new_chicago",
+    rewardCash: 820,
+    difficulty: 4,
+    description:
+      "Rogue rail-yard gunmen armed with 9mm Grease Guns extorting convoys on the Illinois River Viaduct.",
     completed: false,
   },
 ];
@@ -1071,6 +1752,20 @@ export const AVAILABLE_MERCENARIES: Mercenary[] = [
     bio: "Ranch enforcer armed with a double-barrel 12-gauge. Shreds anyone who gets near the wagon.",
   },
   {
+    id: "merc_django",
+    name: "Django 'Six-Shooter' Morales",
+    roleTitle: "Tombstone Pistolero",
+    homeSettlement: "tombstone_crossing",
+    hiringFee: 320,
+    dailyWage: 28,
+    maxHp: 98,
+    hp: 98,
+    maxAp: 8,
+    accuracyBonus: 18,
+    equippedWeapon: "peacemaker_45",
+    bio: "Former Tombstone Ranger who fans a Colt .45 Peacemaker with lethal precision and high AP.",
+  },
+  {
     id: "merc_vance",
     name: "Sgt. Julian Vance",
     roleTitle: "Saint Louis Deserter Marksman",
@@ -1084,6 +1779,20 @@ export const AVAILABLE_MERCENARIES: Mercenary[] = [
     equippedWeapon: "carbine_556",
     bio: "Trained in Saint Louis urban warfare. Carries a 5.56 Carbine and high AP mobility.",
   },
+  {
+    id: "merc_kovacs",
+    name: "Viktor 'Longshot' Kovacs",
+    roleTitle: "New Chicago Rail Sniper",
+    homeSettlement: "new_chicago",
+    hiringFee: 560,
+    dailyWage: 44,
+    maxHp: 115,
+    hp: 115,
+    maxAp: 8,
+    accuracyBonus: 25,
+    equippedWeapon: "sniper_rifle_762",
+    bio: "Elite sharpshooter from the Great Lakes rail garrisons. Wields an M24 7.62mm Sniper Rifle capable of cross-map headshots.",
+  },
 ];
 
 export function createInitialGameState(): GameState {
@@ -1092,8 +1801,10 @@ export function createInitialGameState(): GameState {
     deadwood_gulch: { ...SETTLEMENTS.deadwood_gulch.baseStock },
     leadville_shaft: { ...SETTLEMENTS.leadville_shaft.baseStock },
     blackwater_rig: { ...SETTLEMENTS.blackwater_rig.baseStock },
+    tombstone_crossing: { ...SETTLEMENTS.tombstone_crossing.baseStock },
     saint_louis: { ...SETTLEMENTS.saint_louis.baseStock },
     new_denver: { ...SETTLEMENTS.new_denver.baseStock },
+    new_chicago: { ...SETTLEMENTS.new_chicago.baseStock },
   };
 
   return {
@@ -1135,7 +1846,7 @@ export function createInitialGameState(): GameState {
     reputation: 10,
     journalLogs: [
       "Day 1, 08:00 — You buried your grandfather on the ridge overlooking Dust Creek. His inheritance is yours: $1,000 in Trade Guild script, his faithful pack donkey, an old .308 bolt-action rifle with 12 brass rounds, and a rusty machete.",
-      "Tip: Allocate your 3 unspent Attribute Points in the Character panel, buy cheap Water & Forage in Dust Creek, and head to Deadwood Gulch to start your merchant route!",
+      "Tip: Allocate your 3 unspent Attribute Points in the Character panel, buy cheap Water & Forage in Dust Creek, and head to Deadwood Gulch or Tombstone Crossing to start your merchant route!",
     ],
   };
 }

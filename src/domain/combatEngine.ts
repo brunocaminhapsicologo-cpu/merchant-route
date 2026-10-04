@@ -43,11 +43,13 @@ export function generateRoadEncounter(
           ap: 7,
           maxAp: 7,
           weapon:
-            activeBounty.difficulty >= 3
+            activeBounty.difficulty >= 4
+              ? "sniper_rifle_762"
+              : activeBounty.difficulty >= 3
               ? "carbine_556"
               : activeBounty.difficulty === 2
-              ? "coach_shotgun_12g"
-              : "revolver_38",
+              ? "peacemaker_45"
+              : "lever_repeater_38",
           accuracy: 68 + activeBounty.difficulty * 4,
           morale: 100,
         },
@@ -58,7 +60,12 @@ export function generateRoadEncounter(
           maxHp: 50 + activeBounty.difficulty * 10,
           ap: 6,
           maxAp: 6,
-          weapon: "revolver_38",
+          weapon:
+            activeBounty.difficulty >= 4
+              ? "grease_smg_9mm"
+              : activeBounty.difficulty >= 2
+              ? "pump_shotgun_12g"
+              : "revolver_38",
           accuracy: 62 + activeBounty.difficulty * 3,
           morale: 85,
         },
@@ -69,8 +76,13 @@ export function generateRoadEncounter(
           maxHp: 55 + activeBounty.difficulty * 8,
           ap: 6,
           maxAp: 6,
-          weapon: "rusty_machete",
-          accuracy: 78,
+          weapon:
+            activeBounty.difficulty >= 3
+              ? "sledgehammer"
+              : activeBounty.difficulty === 2
+              ? "cavalry_saber"
+              : "rusty_machete",
+          accuracy: 80,
           morale: 80,
         },
       ],
@@ -78,6 +90,7 @@ export function generateRoadEncounter(
         cash: 140 + activeBounty.difficulty * 90,
         items: {
           ammo_38: 8,
+          ammo_45: 6,
           ammo_308: 5,
           field_bandage: 2,
           smoked_jerky: 2,
@@ -94,7 +107,7 @@ export function generateRoadEncounter(
       title: "Desperate Scrubland Drifters",
       enemyGroupName: "Dust Creek Scavengers",
       description:
-        "Two sun-blistered scavengers step out from behind a rusted billboard, demanding water and coin at gunpoint.",
+        "Three sun-blistered scavengers step out from behind a rusted billboard, demanding water and coin at gunpoint.",
       isBountyTarget: false,
       enemySpeedKmh: 5.2,
       tollDemandCash: 85,
@@ -107,9 +120,20 @@ export function generateRoadEncounter(
           maxHp: 46,
           ap: 6,
           maxAp: 6,
-          weapon: "revolver_38",
-          accuracy: 60,
+          weapon: "derringer_22",
+          accuracy: 62,
           morale: 75,
+        },
+        {
+          name: "Prairie Kid",
+          role: "Varmint Shooter",
+          hp: 44,
+          maxHp: 44,
+          ap: 6,
+          maxAp: 6,
+          weapon: "varmint_rifle_22",
+          accuracy: 64,
+          morale: 72,
         },
         {
           name: "Machete Rufus",
@@ -126,6 +150,7 @@ export function generateRoadEncounter(
       lootReward: {
         cash: 95,
         items: {
+          ammo_22: 10,
           ammo_38: 6,
           water: 3,
           raw_leather: 1,
@@ -140,7 +165,7 @@ export function generateRoadEncounter(
       title: "Canyon Bushwhackers",
       enemyGroupName: "Red Rock Outlaws",
       description:
-        "Rifle barrels glint from the canyon boulders ahead. A three-man bushwhacker crew is eyeing your pack animals and cargo.",
+        "Lever-action repeaters glint from the canyon boulders ahead. A three-man bushwhacker crew is eyeing your pack animals and cargo.",
       isBountyTarget: false,
       enemySpeedKmh: 7.4,
       tollDemandCash: 165,
@@ -153,8 +178,8 @@ export function generateRoadEncounter(
           maxHp: 58,
           ap: 6,
           maxAp: 6,
-          weapon: "bolt_rifle_308",
-          accuracy: 68,
+          weapon: "lever_repeater_38",
+          accuracy: 70,
           morale: 85,
         },
         {
@@ -165,26 +190,27 @@ export function generateRoadEncounter(
           ap: 6,
           maxAp: 6,
           weapon: "coach_shotgun_12g",
-          accuracy: 66,
+          accuracy: 68,
           morale: 80,
         },
         {
-          name: "Skinner Kid",
-          role: "Flanker",
-          hp: 48,
-          maxHp: 48,
+          name: "Saber Delgado",
+          role: "Outrider Duelist",
+          hp: 54,
+          maxHp: 54,
           ap: 7,
           maxAp: 7,
-          weapon: "rusty_machete",
-          accuracy: 80,
-          morale: 72,
+          weapon: "cavalry_saber",
+          accuracy: 84,
+          morale: 76,
         },
       ],
       lootReward: {
         cash: 175,
         items: {
-          ammo_308: 6,
+          ammo_38: 8,
           ammo_12g: 5,
+          ammo_308: 4,
           field_bandage: 2,
           scrap_metal: 2,
         },
@@ -192,57 +218,128 @@ export function generateRoadEncounter(
     };
   }
 
+  if (danger === 3) {
+    return {
+      id: `enc_${Date.now()}`,
+      title: "Highway Raider Syndicate",
+      enemyGroupName: "Asphalt Jackals",
+      description:
+        "Well-armed highway raiders in welded scrap armor block the road, hunting high-value fuel, leather, and city merchandise.",
+      isBountyTarget: false,
+      enemySpeedKmh: 11.5,
+      tollDemandCash: 260,
+      intimidateThreshold: 18,
+      enemies: [
+        {
+          name: "Road-Captain Vex",
+          role: "Gunslinger Boss",
+          hp: 78,
+          maxHp: 78,
+          ap: 7,
+          maxAp: 7,
+          weapon: "peacemaker_45",
+          accuracy: 74,
+          morale: 90,
+        },
+        {
+          name: "Buckshot Miller",
+          role: "Trench Breacher",
+          hp: 72,
+          maxHp: 72,
+          ap: 6,
+          maxAp: 6,
+          weapon: "pump_shotgun_12g",
+          accuracy: 72,
+          morale: 85,
+        },
+        {
+          name: "Dust Sniper Crow",
+          role: "Sharpshooter",
+          hp: 62,
+          maxHp: 62,
+          ap: 6,
+          maxAp: 6,
+          weapon: "bolt_rifle_308",
+          accuracy: 74,
+          morale: 82,
+        },
+        {
+          name: "Crusher Briggs",
+          role: "Maul Enforcer",
+          hp: 74,
+          maxHp: 74,
+          ap: 6,
+          maxAp: 6,
+          weapon: "sledgehammer",
+          accuracy: 80,
+          morale: 84,
+        },
+      ],
+      lootReward: {
+        cash: 280,
+        items: {
+          ammo_45: 8,
+          ammo_12g: 6,
+          ammo_308: 6,
+          gasoline: 3,
+          antibiotics: 1,
+        },
+      },
+    };
+  }
+
   return {
     id: `enc_${Date.now()}`,
-    title: "Highway Raider Syndicate",
-    enemyGroupName: "Asphalt Jackals",
+    title: "Viaduct Iron Syndicate Ambush",
+    enemyGroupName: "Iron Rail Enforcers",
     description:
-      "Well-armed highway raiders in welded scrap armor block the road, hunting high-value fuel, leather, and city merchandise.",
+      "Elite metropolitan syndicate gunmen armed with M3 Grease Guns, 5.56 Carbines, and 7.62mm Sniper Rifles have barricaded the highway!",
     isBountyTarget: false,
-    enemySpeedKmh: 11.5,
-    tollDemandCash: 280,
-    intimidateThreshold: 19,
+    enemySpeedKmh: 14.5,
+    tollDemandCash: 360,
+    intimidateThreshold: 22,
     enemies: [
       {
-        name: "Road-Captain Vex",
-        role: "Syndicate Leader",
-        hp: 82,
-        maxHp: 82,
+        name: "Commander Vane",
+        role: "Syndicate Tactician",
+        hp: 88,
+        maxHp: 88,
         ap: 7,
         maxAp: 7,
         weapon: "carbine_556",
+        accuracy: 78,
+        morale: 95,
+      },
+      {
+        name: "Chopper Malone",
+        role: "SMG Gunner",
+        hp: 78,
+        maxHp: 78,
+        ap: 7,
+        maxAp: 7,
+        weapon: "grease_smg_9mm",
         accuracy: 74,
-        morale: 92,
+        morale: 88,
       },
       {
-        name: "Buckshot Miller",
-        role: "Breacher",
-        hp: 72,
-        maxHp: 72,
+        name: "Deadeye Cross",
+        role: "Vault Sharpshooter",
+        hp: 68,
+        maxHp: 68,
         ap: 6,
         maxAp: 6,
-        weapon: "coach_shotgun_12g",
-        accuracy: 70,
-        morale: 85,
-      },
-      {
-        name: "Dust Sniper Crow",
-        role: "Sharpshooter",
-        hp: 60,
-        maxHp: 60,
-        ap: 6,
-        maxAp: 6,
-        weapon: "bolt_rifle_308",
-        accuracy: 72,
-        morale: 82,
+        weapon: "sniper_rifle_762",
+        accuracy: 82,
+        morale: 88,
       },
     ],
     lootReward: {
-      cash: 290,
+      cash: 390,
       items: {
         ammo_556: 10,
-        ammo_308: 7,
-        gasoline: 3,
+        ammo_9mm: 12,
+        ammo_762: 6,
+        gasoline: 4,
         antibiotics: 1,
       },
     },
@@ -380,7 +477,7 @@ export function initializeTacticalCombat(
     activeUnitId: "unit_player",
     roundNumber: 1,
     selectedFiringMode:
-      state.equippedWeapon === "rusty_machete" ? "melee" : "snap",
+      playerWeaponStats.ammoType === null ? "melee" : "snap",
     combatLog: [
       `⚔️ Round 1 — Tactical Combat engaged against ${encounter.enemyGroupName}!`,
       `Position your units behind the Wagon (45% Cover) or Rocks (30% Cover) and spend Action Points (AP) wisely.`,
@@ -418,10 +515,14 @@ export function calculateShotPreview(
   const effectiveMode: FiringMode =
     weaponStats.ammoType === null ? "melee" : mode;
 
-  const apCost =
-    effectiveMode === "aimed" && weaponStats.aimedShotAp !== null
-      ? weaponStats.aimedShotAp
-      : weaponStats.snapShotAp;
+  let apCost = weaponStats.snapShotAp;
+  if (effectiveMode === "aimed") {
+    apCost = weaponStats.aimedShotAp ?? weaponStats.snapShotAp;
+  } else if (effectiveMode === "headshot") {
+    apCost = (weaponStats.aimedShotAp ?? weaponStats.snapShotAp) + 1;
+  } else if (effectiveMode === "legshot") {
+    apCost = weaponStats.aimedShotAp ?? weaponStats.snapShotAp + 1;
+  }
 
   if (dist > weaponStats.maxRangeTiles) {
     return {
@@ -450,7 +551,7 @@ export function calculateShotPreview(
   if (weaponStats.ammoType !== null && attacker.currentMagAmmo <= 0) {
     return {
       canAttack: false,
-      reason: "Magazine empty! Reload (2 AP) or switch to Machete",
+      reason: `Magazine empty! Reload (${weaponStats.reloadAp} AP) or switch to Melee`,
       apCost,
       hitChancePercent: 0,
       minDamage: weaponStats.minDamage,
@@ -469,9 +570,23 @@ export function calculateShotPreview(
     hitChance += 8;
   }
 
-  // Aimed shot bonus
+  // Firing mode accuracy modifiers
   if (effectiveMode === "aimed") {
     hitChance += 22;
+  } else if (effectiveMode === "headshot") {
+    hitChance -= 18;
+  } else if (effectiveMode === "legshot") {
+    hitChance -= 10;
+  }
+
+  // Stance modifiers (ranged attacks)
+  if (effectiveMode !== "melee") {
+    if (attacker.isCrouched) {
+      hitChance += 8;
+    }
+    if (target.isCrouched) {
+      hitChance -= 15;
+    }
   }
 
   // Target tile cover defense bonus (ignored in melee)
@@ -482,7 +597,14 @@ export function calculateShotPreview(
 
   const clampedHitChance = Math.max(12, Math.min(96, Math.round(hitChance)));
 
-  const damageMultiplier = effectiveMode === "aimed" ? 1.2 : 1.0;
+  let damageMultiplier = 1.0;
+  if (effectiveMode === "aimed") {
+    damageMultiplier = 1.2;
+  } else if (effectiveMode === "headshot") {
+    damageMultiplier = 1.9;
+  } else if (effectiveMode === "legshot") {
+    damageMultiplier = 0.85;
+  }
 
   return {
     canAttack: true,

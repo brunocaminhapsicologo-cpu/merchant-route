@@ -12,7 +12,13 @@ import {
   getMaxCargoCapacityKg,
   getMaxHp,
 } from "../economyEngine";
-import { createInitialGameState, ROUTES } from "../worldData";
+import {
+  createInitialGameState,
+  ITEMS,
+  ROUTES,
+  SETTLEMENTS,
+  TRANSPORTS,
+} from "../worldData";
 
 describe("Merchant Route — Domain Economy, Logistics & Combat Engine", () => {
   it("initializes Grandfather's inheritance accurately in Dust Creek", () => {
@@ -24,6 +30,30 @@ describe("Merchant Route — Domain Economy, Logistics & Combat Engine", () => {
     expect(state.inventory.ammo_308).toBe(12);
     expect(getMaxHp(state.attributes)).toBe(98);
     expect(getMaxAp(state.attributes)).toBe(7);
+  });
+
+  it("defines all 8 settlements, 14 weapons, 8 ammo calibers, and 10 transports", () => {
+    const settlementIds = Object.keys(SETTLEMENTS);
+    expect(settlementIds).toHaveLength(8);
+    expect(settlementIds).toContain("tombstone_crossing");
+    expect(settlementIds).toContain("new_chicago");
+
+    const weaponItems = Object.values(ITEMS).filter(
+      (i) => i.category === "weapon"
+    );
+    expect(weaponItems).toHaveLength(14);
+
+    const ammoItems = Object.values(ITEMS).filter(
+      (i) => i.category === "ammo"
+    );
+    expect(ammoItems).toHaveLength(8);
+
+    const transportIds = Object.keys(TRANSPORTS);
+    expect(transportIds).toHaveLength(10);
+    expect(transportIds).toContain("hand_cart");
+    expect(transportIds).toContain("pack_mule_team");
+    expect(transportIds).toContain("brahmin_freight_wagon");
+    expect(transportIds).toContain("desert_dune_buggy");
   });
 
   it("applies regional inflation between frontier towns and US metropolises", () => {
@@ -99,7 +129,7 @@ describe("Merchant Route — Domain Economy, Logistics & Combat Engine", () => {
     expect(fueledBikeSpeed.effectiveSpeedKmh).toBeGreaterThan(25);
   });
 
-  it("initializes top-down tactical combat with AP and calculates Snap vs Aimed Shot", () => {
+  it("initializes top-down tactical combat with AP and calculates Snap, Aimed, Headshot, Legshot & Crouch modifiers", () => {
     const state = createInitialGameState();
     const encounter = generateRoadEncounter(state, ROUTES[0]);
     const combat = initializeTacticalCombat(state, encounter);
@@ -107,7 +137,9 @@ describe("Merchant Route — Domain Economy, Logistics & Combat Engine", () => {
     const playerUnit = combat.units.find((u) => u.id === "unit_player")!;
     const enemyUnit = combat.units.find((u) => !u.isPlayerTeam)!;
 
-    // Move enemy within 6 tiles of player for shot preview test
+    // Give player enough AP to test all modes and move enemy to (6, 3) (Ruins cover: -35% hit)
+    playerUnit.ap = 10;
+    playerUnit.maxAp = 10;
     enemyUnit.x = 6;
     enemyUnit.y = 3;
 
@@ -123,12 +155,66 @@ describe("Merchant Route — Domain Economy, Logistics & Combat Engine", () => {
       enemyUnit,
       "aimed"
     );
+    const headshotPreview = calculateShotPreview(
+      combat,
+      playerUnit,
+      enemyUnit,
+      "headshot"
+    );
+    const legshotPreview = calculateShotPreview(
+      combat,
+      playerUnit,
+      enemyUnit,
+      "legshot"
+    );
 
     expect(snapPreview.canAttack).toBe(true);
     expect(aimedPreview.canAttack).toBe(true);
+    expect(headshotPreview.canAttack).toBe(true);
+    expect(legshotPreview.canAttack).toBe(true);
+
+    // AP costs
     expect(aimedPreview.apCost).toBeGreaterThan(snapPreview.apCost);
+    expect(headshotPreview.apCost).toBe(aimedPreview.apCost + 1);
+    expect(legshotPreview.apCost).toBe(aimedPreview.apCost);
+
+    // Accuracy relationships
     expect(aimedPreview.hitChancePercent).toBeGreaterThan(
       snapPreview.hitChancePercent
+    );
+    expect(headshotPreview.hitChancePercent).toBeLessThan(
+      snapPreview.hitChancePercent
+    );
+    expect(legshotPreview.hitChancePercent).toBeLessThan(
+      snapPreview.hitChancePercent
+    );
+
+    // Damage multipliers (1.9x headshot > 1.2x aimed > 1.0x snap > 0.85x legshot)
+    expect(headshotPreview.maxDamage).toBeGreaterThan(aimedPreview.maxDamage);
+    expect(aimedPreview.maxDamage).toBeGreaterThan(snapPreview.maxDamage);
+    expect(snapPreview.maxDamage).toBeGreaterThan(legshotPreview.maxDamage);
+
+    // Crouch stance modifiers (+8% attacker accuracy, -15% target hit chance)
+    playerUnit.isCrouched = true;
+    const crouchedAttackerPreview = calculateShotPreview(
+      combat,
+      playerUnit,
+      enemyUnit,
+      "snap"
+    );
+    expect(crouchedAttackerPreview.hitChancePercent).toBe(
+      snapPreview.hitChancePercent + 8
+    );
+
+    enemyUnit.isCrouched = true;
+    const bothCrouchedPreview = calculateShotPreview(
+      combat,
+      playerUnit,
+      enemyUnit,
+      "snap"
+    );
+    expect(bothCrouchedPreview.hitChancePercent).toBe(
+      crouchedAttackerPreview.hitChancePercent - 15
     );
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { drawCaravaneerMapBackground } from "@/assets/caravaneerSprites";
 import { getCaravanSpeedBreakdown, getRouteBetween } from "@/domain/economyEngine";
 import {
   GameState,
@@ -37,22 +38,22 @@ const TERRAIN_LABELS: Record<
 > = {
   old_highway: {
     label: "Old Asphalt Highway (+Speed for Wheels)",
-    color: "#d97706",
+    color: "#7c2d12",
     strokeDash: [],
   },
   scorched_flats: {
     label: "Scorched Scrub Flats (Balanced)",
-    color: "#a16207",
+    color: "#78350f",
     strokeDash: [8, 5],
   },
   sand_dunes: {
     label: "Alkali Sand Dunes (Slows Wagons, +Water Use)",
-    color: "#eab308",
+    color: "#9a3412",
     strokeDash: [4, 6],
   },
   rocky_canyon: {
     label: "Rocky Canyon Pass (Best for Donkeys)",
-    color: "#78716c",
+    color: "#44403c",
     strokeDash: [10, 4],
   },
 };
@@ -76,44 +77,16 @@ export const OverworldMapCanvas: React.FC<OverworldMapCanvasProps> = ({
     const width = canvas.width;
     const height = canvas.height;
 
-    // 1. Background parchment / arid wasteland gradient
-    const bgGrad = ctx.createRadialGradient(
-      width * 0.5,
-      height * 0.5,
-      60,
-      width * 0.5,
-      height * 0.5,
-      width * 0.75
-    );
-    bgGrad.addColorStop(0, "#292018");
-    bgGrad.addColorStop(0.6, "#1c1610");
-    bgGrad.addColorStop(1, "#120e0a");
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, width, height);
-
-    // 2. Subtle topographic grid lines
-    ctx.strokeStyle = "rgba(217, 119, 6, 0.08)";
-    ctx.lineWidth = 1;
-    for (let x = 0; x < width; x += 50) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-      ctx.stroke();
-    }
-    for (let y = 0; y < height; y += 50) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
+    // 1. Authentic Caravaneer desert parchment, salt flats, canyons & compass rose
+    drawCaravaneerMapBackground(ctx, width, height);
 
     // Region watermarks
     ctx.save();
     ctx.font = "bold 13px monospace";
-    ctx.fillStyle = "rgba(245, 158, 11, 0.18)";
+    ctx.fillStyle = "rgba(69, 26, 3, 0.55)";
     ctx.fillText("WESTERN OLD-WEST FRONTIER", 36, 42);
-    ctx.fillStyle = "rgba(56, 189, 248, 0.22)";
-    ctx.fillText("EASTERN METROPOLITAN ZONE", width - 260, 42);
+    ctx.fillStyle = "rgba(30, 58, 138, 0.55)";
+    ctx.fillText("EASTERN METROPOLITAN ZONE", width - 310, 42);
     ctx.restore();
 
     // 3. Draw Trade Routes
@@ -129,9 +102,9 @@ export const OverworldMapCanvas: React.FC<OverworldMapCanvasProps> = ({
       ctx.beginPath();
       ctx.setLineDash(terrainStyle.strokeDash);
       ctx.strokeStyle = isCurrentActiveRoute
-        ? "#38bdf8"
+        ? "#0284c7"
         : terrainStyle.color;
-      ctx.lineWidth = isCurrentActiveRoute ? 4 : 2.5;
+      ctx.lineWidth = isCurrentActiveRoute ? 4.5 : 2.8;
       ctx.moveTo(fromSet.coordinates.x, fromSet.coordinates.y);
       ctx.lineTo(toSet.coordinates.x, toSet.coordinates.y);
       ctx.stroke();
@@ -141,8 +114,8 @@ export const OverworldMapCanvas: React.FC<OverworldMapCanvasProps> = ({
       const midY = (fromSet.coordinates.y + toSet.coordinates.y) / 2;
 
       ctx.setLineDash([]);
-      ctx.fillStyle = "rgba(20, 16, 12, 0.88)";
-      ctx.strokeStyle = "rgba(217, 119, 6, 0.35)";
+      ctx.fillStyle = "rgba(24, 18, 12, 0.88)";
+      ctx.strokeStyle = "rgba(217, 119, 6, 0.55)";
       ctx.lineWidth = 1;
       ctx.fillRect(midX - 34, midY - 11, 68, 22);
       ctx.strokeRect(midX - 34, midY - 11, 68, 22);
@@ -167,8 +140,8 @@ export const OverworldMapCanvas: React.FC<OverworldMapCanvasProps> = ({
       if (isPlayerHere || isSelected) {
         ctx.beginPath();
         ctx.arc(x, y, 24, 0, Math.PI * 2);
-        ctx.strokeStyle = isPlayerHere ? "#22c55e" : "#f59e0b";
-        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = isPlayerHere ? "#15803d" : "#b45309";
+        ctx.lineWidth = 3;
         ctx.stroke();
       }
 
@@ -178,7 +151,7 @@ export const OverworldMapCanvas: React.FC<OverworldMapCanvasProps> = ({
       ctx.fillStyle = isMajorCity ? "#1e3a8a" : "#78350f";
       ctx.fill();
       ctx.lineWidth = 2.5;
-      ctx.strokeStyle = isMajorCity ? "#60a5fa" : "#f59e0b";
+      ctx.strokeStyle = isMajorCity ? "#93c5fd" : "#fbbf24";
       ctx.stroke();
 
       // Inner icon symbol
@@ -187,18 +160,27 @@ export const OverworldMapCanvas: React.FC<OverworldMapCanvasProps> = ({
       ctx.textAlign = "center";
       ctx.fillText(isMajorCity ? "★" : "⛺", x, y + 4);
 
+      // Label backdrop plate for readability over parchment
+      ctx.fillStyle = "rgba(24, 18, 12, 0.84)";
+      ctx.fillRect(x - 68, y + 19, 136, 30);
+      ctx.strokeStyle = isMajorCity
+        ? "rgba(96, 165, 250, 0.5)"
+        : "rgba(217, 119, 6, 0.5)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x - 68, y + 19, 136, 30);
+
       // Settlement Name Label
-      ctx.font = isMajorCity ? "bold 13px sans-serif" : "bold 12px sans-serif";
+      ctx.font = isMajorCity ? "bold 12px sans-serif" : "bold 11px sans-serif";
       ctx.fillStyle = isMajorCity ? "#93c5fd" : "#fef3c7";
       ctx.fillText(settlement.name, x, y + 32);
 
       // Tier Tag
-      ctx.font = "10px monospace";
-      ctx.fillStyle = isMajorCity ? "#60a5fa" : "#d97706";
+      ctx.font = "9px monospace";
+      ctx.fillStyle = isMajorCity ? "#60a5fa" : "#f59e0b";
       ctx.fillText(
         isMajorCity ? "[US METROPOLIS]" : "[OLD WEST TOWN]",
         x,
-        y + 45
+        y + 44
       );
 
       ctx.restore();
@@ -310,10 +292,10 @@ export const OverworldMapCanvas: React.FC<OverworldMapCanvasProps> = ({
           </div>
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center gap-1 text-amber-400">
-              ● Old West Frontier Towns (4)
+              ● Old West Frontier Towns (5)
             </span>
             <span className="inline-flex items-center gap-1 text-sky-400">
-              ★ US Major Metropolises (2)
+              ★ US Major Metropolises (3)
             </span>
           </div>
         </div>
