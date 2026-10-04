@@ -1,0 +1,292 @@
+export type SettlementId =
+  | "dust_creek"
+  | "deadwood_gulch"
+  | "leadville_shaft"
+  | "blackwater_rig"
+  | "saint_louis"
+  | "new_denver";
+
+export type SettlementTier = "frontier_town" | "major_city";
+
+export type TerrainType =
+  | "old_highway"
+  | "scorched_flats"
+  | "sand_dunes"
+  | "rocky_canyon";
+
+export type TransportId =
+  | "on_foot"
+  | "old_donkey"
+  | "wooden_cart_donkey"
+  | "heavy_wagon_horse"
+  | "scrap_motorcycle"
+  | "armored_pickup";
+
+export type PropulsionType = "human" | "animal" | "motor";
+
+export type ItemCategory =
+  | "survival"
+  | "commodity"
+  | "weapon"
+  | "ammo"
+  | "contraband"
+  | "medical";
+
+export type ItemId =
+  | "water"
+  | "food_rations"
+  | "animal_forage"
+  | "gasoline"
+  | "raw_leather"
+  | "smoked_jerky"
+  | "scrap_metal"
+  | "salt"
+  | "tools"
+  | "antibiotics"
+  | "luxury_cigars"
+  | "moonshine"
+  | "field_bandage"
+  | "rusty_machete"
+  | "revolver_38"
+  | "bolt_rifle_308"
+  | "coach_shotgun_12g"
+  | "carbine_556"
+  | "ammo_38"
+  | "ammo_308"
+  | "ammo_12g"
+  | "ammo_556";
+
+export type WeaponId =
+  | "rusty_machete"
+  | "revolver_38"
+  | "bolt_rifle_308"
+  | "coach_shotgun_12g"
+  | "carbine_556";
+
+export type AmmoItemId = "ammo_38" | "ammo_308" | "ammo_12g" | "ammo_556";
+
+export interface CharacterAttributes {
+  grit: number; // Determines Max HP (50 + grit * 12) & personal carry capacity (+6 kg/pt)
+  agility: number; // Determines Max AP (5 + floor(agility / 2)), movement efficiency & escape chance
+  perception: number; // Determines Ranged Accuracy (+4% per pt) & encounter spotting distance
+  charisma: number; // Determines Trade price bonus (±2.5% per pt), intimidation & sheriff checks
+}
+
+export interface WeaponStats {
+  weaponId: WeaponId;
+  minDamage: number;
+  maxDamage: number;
+  optimalRangeTiles: number;
+  maxRangeTiles: number;
+  snapShotAp: number;
+  aimedShotAp: number | null; // null for melee
+  baseAccuracy: number;
+  ammoType: AmmoItemId | null;
+  magazineSize: number;
+  reloadAp: number;
+}
+
+export interface ItemDefinition {
+  id: ItemId;
+  name: string;
+  category: ItemCategory;
+  weightKg: number;
+  basePrice: number;
+  description: string;
+  isContraband?: boolean;
+  weaponStats?: WeaponStats;
+}
+
+export interface TransportDefinition {
+  id: TransportId;
+  name: string;
+  propulsion: PropulsionType;
+  maxCargoKg: number;
+  baseSpeedKmh: number;
+  price: number;
+  waterPerDay: number; // Liters consumed by animals per day (even when idle)
+  foragePerDay: number; // Kg of forage consumed by animals per day
+  fuelLitersPer10Km: number; // Gasoline consumed only when moving
+  availableInTiers: SettlementTier[];
+  description: string;
+  terrainSpeedMultipliers: Record<TerrainType, number>;
+}
+
+export interface NpcProfile {
+  role: "general_trader" | "transport_master" | "sheriff" | "saloon_barkeep";
+  name: string;
+  title: string;
+  greeting: string;
+  loreDialogue: string;
+  tipDialogue: string;
+}
+
+export interface SettlementDefinition {
+  id: SettlementId;
+  name: string;
+  tier: SettlementTier;
+  subtitle: string;
+  lore: string;
+  coordinates: { x: number; y: number }; // 0-1000 canvas coordinate space
+  produces: ItemId[];
+  demands: ItemId[];
+  priceMultipliers: Partial<Record<ItemId, number>>;
+  baseStock: Partial<Record<ItemId, number>>;
+  strictContrabandCheck: boolean;
+  npcs: Record<NpcProfile["role"], NpcProfile>;
+}
+
+export interface RouteEdge {
+  id: string;
+  from: SettlementId;
+  to: SettlementId;
+  distanceKm: number;
+  terrain: TerrainType;
+  dangerLevel: number; // 1 to 5
+  routeLabel: string;
+}
+
+export interface MarketEvent {
+  id: string;
+  title: string;
+  description: string;
+  settlementId: SettlementId;
+  affectedItem: ItemId;
+  priceMultiplier: number;
+  daysRemaining: number;
+}
+
+export interface BountyContract {
+  id: string;
+  bossName: string;
+  gangName: string;
+  routeId: string;
+  originSettlement: SettlementId;
+  rewardCash: number;
+  difficulty: number;
+  description: string;
+  completed: boolean;
+}
+
+export interface Mercenary {
+  id: string;
+  name: string;
+  roleTitle: string;
+  homeSettlement: SettlementId;
+  hiringFee: number;
+  dailyWage: number;
+  maxHp: number;
+  hp: number;
+  maxAp: number;
+  accuracyBonus: number;
+  equippedWeapon: WeaponId;
+  bio: string;
+}
+
+export interface ActiveTravelState {
+  routeId: string;
+  from: SettlementId;
+  to: SettlementId;
+  totalDistanceKm: number;
+  distanceCoveredKm: number;
+  terrain: TerrainType;
+  isPaused: boolean;
+}
+
+export interface RoadEncounter {
+  id: string;
+  title: string;
+  enemyGroupName: string;
+  description: string;
+  isBountyTarget: boolean;
+  bountyId?: string;
+  enemySpeedKmh: number;
+  tollDemandCash: number;
+  intimidateThreshold: number;
+  enemies: Array<{
+    name: string;
+    role: string;
+    hp: number;
+    maxHp: number;
+    ap: number;
+    maxAp: number;
+    weapon: WeaponId;
+    accuracy: number;
+    morale: number;
+  }>;
+  lootReward: {
+    cash: number;
+    items: Partial<Record<ItemId, number>>;
+  };
+}
+
+export type TileCoverType = "none" | "rocks" | "wagon" | "ruins" | "sand";
+
+export interface CombatGridTile {
+  x: number;
+  y: number;
+  cover: TileCoverType;
+  moveApCost: number;
+  defenseBonus: number; // 0, 25, or 45 (% reduction to incoming hit chance)
+}
+
+export type FiringMode = "melee" | "snap" | "aimed";
+
+export interface CombatUnit {
+  id: string;
+  name: string;
+  role: string;
+  isPlayerTeam: boolean;
+  isMainCharacter?: boolean;
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  ap: number;
+  maxAp: number;
+  weapon: WeaponId;
+  currentMagAmmo: number;
+  accuracy: number;
+  morale: number; // 0 to 100; if < 25 may flee
+  isFled?: boolean;
+}
+
+export interface CombatState {
+  encounter: RoadEncounter;
+  gridWidth: number;
+  gridHeight: number;
+  tiles: CombatGridTile[][];
+  units: CombatUnit[];
+  activeUnitId: string;
+  roundNumber: number;
+  selectedFiringMode: FiringMode;
+  combatLog: string[];
+  outcome: "ongoing" | "victory" | "defeat";
+}
+
+export interface GameState {
+  playerName: string;
+  attributes: CharacterAttributes;
+  unspentAttributePoints: number;
+  hp: number;
+  maxHp: number;
+  equippedWeapon: WeaponId;
+  cash: number;
+  day: number;
+  hour: number;
+  currentSettlement: SettlementId | null;
+  lastVisitedSettlement: SettlementId;
+  transport: TransportId;
+  ownedTransports: TransportId[];
+  inventory: Partial<Record<ItemId, number>>;
+  townStocks: Record<SettlementId, Partial<Record<ItemId, number>>>;
+  marketEvents: MarketEvent[];
+  knownRumorIds: string[];
+  bounties: BountyContract[];
+  hiredMercenaries: Mercenary[];
+  travelState: ActiveTravelState | null;
+  pendingEncounter: RoadEncounter | null;
+  combatState: CombatState | null;
+  reputation: number;
+  journalLogs: string[];
+}
