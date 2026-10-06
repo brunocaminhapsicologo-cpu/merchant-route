@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 import { TransportIllustration } from "@/assets/caravaneerSprites";
 import { GameState, ItemId, RovingEntity, SettlementId, TransportId } from "@/domain/types";
-import { SETTLEMENTS, ROUTES, SECRET_LOCATIONS, ITEMS } from "@/domain/worldData";
+import { SETTLEMENTS, SECRET_LOCATIONS, ITEMS } from "@/domain/worldData";
+import { getMapZoneInfo, getMapZoneLevel } from "@/domain/combatEngine";
 import {
   getCaravanSpeedBreakdown,
   getDailyUpkeepSummary,
@@ -29,6 +30,9 @@ import {
   getTerrainAt,
   getWorldPosition,
 } from "@/domain/navigationEngine";
+
+/** Caravans are invisible on the General Map and only visible on the Travel Map within this radar radius (75 units = 15 km). */
+export const CARAVAN_RADAR_RADIUS_UNITS = 75;
 
 function getEntityTypeMeta(type: RovingEntity["type"]): {
   labelPt: string;
@@ -115,22 +119,28 @@ function getEntityTransportVisual(entity: RovingEntity): {
       transportLabel: entity.transportLabel ?? "A Pé & Burro de Carga",
     };
   }
-  // Raider
-  if (entity.speedKmh >= 11) {
+  // Raider: strictly scaled by regional level speed (Lv.1 Animals -> Lv.4 V8 Cars & War Trucks)
+  if (entity.speedKmh >= 13.8) {
     return {
-      transportId: "desert_dune_buggy",
-      transportLabel: entity.transportLabel ?? "Carro de Assalto V8",
+      transportId: "armored_pickup",
+      transportLabel: entity.transportLabel ?? "Caminhões & Carros Blindados V8",
     };
   }
-  if (entity.speedKmh >= 7.5) {
+  if (entity.speedKmh >= 10.5) {
+    return {
+      transportId: "desert_dune_buggy",
+      transportLabel: entity.transportLabel ?? "Carros de Assalto V8",
+    };
+  }
+  if (entity.speedKmh >= 7.0) {
     return {
       transportId: "heavy_wagon_horse",
-      transportLabel: entity.transportLabel ?? "Cavalos Roubados",
+      transportLabel: entity.transportLabel ?? "Cavalos & Carroças",
     };
   }
   return {
     transportId: "pack_mule_team",
-    transportLabel: entity.transportLabel ?? "Mulas & Cavalos Leves",
+    transportLabel: entity.transportLabel ?? "Burros & Mulas de Carga",
   };
 }
 
@@ -172,12 +182,10 @@ export function WorldDrawing({
 
   const position = getWorldPosition(state);
   const heading = state.exploration?.heading ?? 0;
-  // Expanded viewBox prevents bottom edge clipping (New Chicago at y:650 has 110px padding)
   const viewBox = local
     ? `${position.x - 150} ${position.y - 110} 300 220`
     : "-20 -20 1040 780";
 
-  // Calculate default compass vector endpoint if user hasn't dragged a custom point yet
   const rad = (heading * Math.PI) / 180;
   const activeTarget = compassTarget ?? {
     x: position.x + Math.sin(rad) * 110,
@@ -186,6 +194,15 @@ export function WorldDrawing({
   };
   const measuredBearing = getBearing(position, activeTarget);
   const measuredDistanceKm = getDistanceKm(position, activeTarget);
+
+  // Caravans are ONLY visible on the Travel Map (local === true) AND when within radar range (75 units = 15 km)
+  const visibleCaravans = local
+    ? (state.rovingEntities ?? []).filter(
+        (entity) =>
+          Math.hypot(entity.x - position.x, entity.y - position.y) <=
+          CARAVAN_RADAR_RADIUS_UNITS
+      )
+    : [];
 
   const clientToSvgPoint = (
     clientX: number,
@@ -287,7 +304,7 @@ export function WorldDrawing({
       aria-label={
         local
           ? "Surrounding desert and nearby settlements — click to glide smoothly"
-          : "World atlas with interactive draggable compass and smooth caravan movement"
+          : "World atlas with interactive draggable compass and regional threat levels"
       }
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -347,30 +364,178 @@ export function WorldDrawing({
         fill={`url(#${local ? "sand-local" : "sand-atlas"})`}
       />
 
+      {/* Regional Level Zone Tints & Dividers on General Map */}
+      {!local && (
+        <g className="pointer-events-none">
+          {/* Zone 4 High-Threat Tint (Capital & Military Camp) */}
+          <rect
+            x="810"
+            y="-20"
+            width="210"
+            height="780"
+            fill="rgba(127, 29, 29, 0.14)"
+          />
+          {/* Zone 3 Medium-High Tint */}
+          <rect
+            x="640"
+            y="-20"
+            width="170"
+            height="780"
+            fill="rgba(180, 83, 9, 0.08)"
+          />
+          {/* Zone Boundary Lines */}
+          <line
+            x1="390"
+            y1="-10"
+            x2="390"
+            y2="750"
+            stroke="#3f4d38"
+            strokeWidth="1.5"
+            opacity="0.55"
+          />
+          <line
+            x1="640"
+            y1="-10"
+            x2="640"
+            y2="750"
+            stroke="#78350f"
+            strokeWidth="1.5"
+            opacity="0.55"
+          />
+          <line
+            x1="810"
+            y1="-10"
+            x2="810"
+            y2="750"
+            stroke="#991b1b"
+            strokeWidth="2"
+            opacity="0.65"
+          />
+
+          {/* Zone Bottom Stencil Labels */}
+          <g transform="translate(215, 705)">
+            <rect
+              x="-135"
+              y="-11"
+              width="270"
+              height="18"
+              rx="3"
+              fill="#141b12"
+              stroke="#22c55e"
+              strokeWidth="1"
+              opacity="0.9"
+            />
+            <text
+              x="0"
+              y="2"
+              textAnchor="middle"
+              fill="#86efac"
+              fontSize="8.5"
+              fontWeight="900"
+              fontFamily="ui-monospace, monospace"
+            >
+              ZONA NV.1 · FRONTEIRA (ANIMAIS & ARMAS LEVES)
+            </text>
+          </g>
+
+          <g transform="translate(515, 705)">
+            <rect
+              x="-115"
+              y="-11"
+              width="230"
+              height="18"
+              rx="3"
+              fill="#141b12"
+              stroke="#eab308"
+              strokeWidth="1"
+              opacity="0.9"
+            />
+            <text
+              x="0"
+              y="2"
+              textAnchor="middle"
+              fill="#fde047"
+              fontSize="8.5"
+              fontWeight="900"
+              fontFamily="ui-monospace, monospace"
+            >
+              ZONA NV.2 · CÂNIONS (CAVALOS & .38)
+            </text>
+          </g>
+
+          <g transform="translate(725, 705)">
+            <rect
+              x="-80"
+              y="-11"
+              width="160"
+              height="18"
+              rx="3"
+              fill="#141b12"
+              stroke="#f97316"
+              strokeWidth="1"
+              opacity="0.9"
+            />
+            <text
+              x="0"
+              y="2"
+              textAnchor="middle"
+              fill="#fdba74"
+              fontSize="8.5"
+              fontWeight="900"
+              fontFamily="ui-monospace, monospace"
+            >
+              ZONA NV.3 · CARROS V8
+            </text>
+          </g>
+
+          <g transform="translate(910, 705)">
+            <rect
+              x="-95"
+              y="-11"
+              width="190"
+              height="18"
+              rx="3"
+              fill="#221010"
+              stroke="#ef4444"
+              strokeWidth="1.2"
+              opacity="0.94"
+            />
+            <text
+              x="0"
+              y="2"
+              textAnchor="middle"
+              fill="#fca5a5"
+              fontSize="8.5"
+              fontWeight="900"
+              fontFamily="ui-monospace, monospace"
+            >
+              ZONA NV.4 · CAPITAL & MILITAR
+            </text>
+          </g>
+        </g>
+      )}
+
       {/* Topographic Elevation Waves */}
       <path
         d="M -50 160 Q 250 110 500 170 T 1100 130"
         fill="none"
         stroke="#8c784f"
         strokeWidth="1"
-        strokeDasharray="5 5"
-        opacity="0.5"
+        opacity="0.35"
       />
       <path
         d="M -50 340 Q 300 290 650 360 T 1100 300"
         fill="none"
         stroke="#8c784f"
         strokeWidth="1"
-        strokeDasharray="5 5"
-        opacity="0.5"
+        opacity="0.35"
       />
       <path
         d="M -50 530 Q 280 470 580 540 T 1100 480"
         fill="none"
         stroke="#8c784f"
         strokeWidth="1"
-        strokeDasharray="5 5"
-        opacity="0.5"
+        opacity="0.35"
       />
 
       {/* Dried Riverbed / Salt Flats */}
@@ -393,45 +558,48 @@ export function WorldDrawing({
       {/* Coordinate Grid Overlay */}
       <rect x="-20" y="-20" width="1040" height="780" fill="url(#map-grid)" />
 
-      {/* Caravan Routes */}
-      {ROUTES.map((route) => {
-        const from = SETTLEMENTS[route.from].coordinates;
-        const to = SETTLEMENTS[route.to].coordinates;
-        const isHighway = route.terrain === "old_highway";
+      {/* Military Camp Landmark in Level 4 Capital Region (x: 895, y: 385) */}
+      <g transform="translate(895, 385)" className="pointer-events-none">
+        <polygon
+          points="0,-13 12,8 -12,8"
+          fill="#3b1212"
+          stroke="#ef4444"
+          strokeWidth="2"
+        />
+        <circle r="3" fill="#fde047" />
+        <g transform={`translate(0, ${local ? 17 : 22})`}>
+          <rect
+            x="-82"
+            y="-10"
+            width="164"
+            height="16"
+            rx="2"
+            fill="#221010"
+            stroke="#ef4444"
+            strokeWidth="1"
+            opacity="0.94"
+          />
+          <text
+            x="0"
+            y="1.5"
+            textAnchor="middle"
+            fill="#fca5a5"
+            fontSize={local ? 7 : 9}
+            fontWeight="900"
+            fontFamily="ui-monospace, monospace"
+          >
+            ACAMPAMENTO MILITAR [NV.4]
+          </text>
+        </g>
+      </g>
 
-        return (
-          <g key={route.id}>
-            {isHighway && (
-              <line
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
-                stroke="#3f382c"
-                strokeWidth={local ? 4 : 6}
-                strokeLinecap="round"
-                opacity="0.75"
-              />
-            )}
-            <line
-              x1={from.x}
-              y1={from.y}
-              x2={to.x}
-              y2={to.y}
-              stroke={isHighway ? "#e8dec0" : "#7d6741"}
-              strokeWidth={local ? 2 : 2.5}
-              strokeDasharray={isHighway ? "8 6" : "6 7"}
-              opacity="0.85"
-            />
-          </g>
-        );
-      })}
-
-      {/* Settlements with Tactical Badges */}
+      {/* Settlements with Tactical Badges & Regional Level Tag */}
       {Object.values(SETTLEMENTS).map((town) => {
         const isSelected = selected === town.id;
         const isMajor = town.tier === "major_city";
-        const labelWidth = Math.max(90, town.name.length * 8.5);
+        const townZoneLvl = getMapZoneLevel(town.coordinates);
+        const displayLabel = `${town.name} [Nv.${townZoneLvl}]`;
+        const labelWidth = Math.max(110, displayLabel.length * 7.8);
 
         return (
           <g
@@ -498,12 +666,12 @@ export function WorldDrawing({
                 y="2"
                 textAnchor="middle"
                 fill={isSelected ? "#fef08a" : "#ebdcb2"}
-                fontSize={local ? 8 : 11}
+                fontSize={local ? 7.5 : 10}
                 fontWeight="800"
                 fontFamily="ui-monospace, monospace"
-                letterSpacing="0.05em"
+                letterSpacing="0.03em"
               >
-                {town.name}
+                {displayLabel}
               </text>
             </g>
           </g>
@@ -543,8 +711,8 @@ export function WorldDrawing({
         );
       })}
 
-      {/* Living World Caravans (Merchants, Travelers, Police on Horses/Cars, and Bandits) */}
-      {(state.rovingEntities ?? []).map((entity) => {
+      {/* Caravans — ONLY rendered on the Travel Map (local === true) when within radar range (<= 75 units / 15 km) */}
+      {visibleCaravans.map((entity) => {
         const meta = getEntityTypeMeta(entity.type);
         const transportMeta = getEntityTransportVisual(entity);
         const isOffroad = entity.routeMode === "offroad";
@@ -570,23 +738,23 @@ export function WorldDrawing({
             <line
               x1="0"
               y1="0"
-              x2={Math.sin(headingRad) * (local ? 16 : 22)}
-              y2={-Math.cos(headingRad) * (local ? 16 : 22)}
+              x2={Math.sin(headingRad) * 16}
+              y2={-Math.cos(headingRad) * 16}
               stroke={meta.strokeColor}
-              strokeWidth={local ? "1.2" : "1.5"}
+              strokeWidth="1.2"
               strokeDasharray="2 2"
               opacity="0.75"
             />
 
             {/* Outer tactical token */}
             <circle
-              r={local ? 6.5 : 8.5}
+              r={6.5}
               fill={meta.badgeColor}
               stroke="#141b12"
               strokeWidth="2"
             />
             <circle
-              r={local ? 6.5 : 8.5}
+              r={6.5}
               fill="none"
               stroke={meta.strokeColor}
               strokeWidth="1"
@@ -594,7 +762,7 @@ export function WorldDrawing({
 
             {/* Directional heading chevron inside token */}
             <path
-              d={local ? "M0-4.2L3 3 0 1.4-3 3Z" : "M0-5.5L4 4 0 2-4 4Z"}
+              d="M0-4.2L3 3 0 1.4-3 3Z"
               fill="#fef08a"
               transform={`rotate(${entity.heading ?? 0})`}
             />
@@ -606,60 +774,44 @@ export function WorldDrawing({
             </title>
 
             {/* Detailed Stamped Tag on Local Travel View */}
-            {local ? (
-              <g transform="translate(0, -11)">
-                <rect
-                  x="-54"
-                  y="-11"
-                  width="108"
-                  height="13"
-                  rx="2"
-                  fill="#141b12"
-                  stroke={meta.strokeColor}
-                  strokeWidth="0.8"
-                  opacity="0.92"
-                />
-                <text
-                  x="0"
-                  y="-2.5"
-                  textAnchor="middle"
-                  fill={meta.textColor}
-                  fontSize="5.2"
-                  fontWeight="900"
-                  fontFamily="ui-monospace, monospace"
-                >
-                  {entity.name}
-                </text>
-                <text
-                  x="0"
-                  y="19"
-                  textAnchor="middle"
-                  fill="#ebdcb2"
-                  fontSize="4.6"
-                  fontWeight="bold"
-                  fontFamily="ui-monospace, monospace"
-                  paintOrder="stroke"
-                  stroke="#141b12"
-                  strokeWidth="1.8"
-                >
-                  [{transportMeta.transportLabel} · {entity.speedKmh.toFixed(1)}km/h]
-                </text>
-              </g>
-            ) : (
-              <text
+            <g transform="translate(0, -11)">
+              <rect
+                x="-54"
                 y="-11"
+                width="108"
+                height="13"
+                rx="2"
+                fill="#141b12"
+                stroke={meta.strokeColor}
+                strokeWidth="0.8"
+                opacity="0.92"
+              />
+              <text
+                x="0"
+                y="-2.5"
                 textAnchor="middle"
                 fill={meta.textColor}
-                fontSize="8.5"
+                fontSize="5.2"
+                fontWeight="900"
+                fontFamily="ui-monospace, monospace"
+              >
+                {entity.name}
+              </text>
+              <text
+                x="0"
+                y="19"
+                textAnchor="middle"
+                fill="#ebdcb2"
+                fontSize="4.6"
                 fontWeight="bold"
                 fontFamily="ui-monospace, monospace"
                 paintOrder="stroke"
-                stroke="#141813"
-                strokeWidth="2.5"
+                stroke="#141b12"
+                strokeWidth="1.8"
               >
-                {meta.labelPt}
+                [{transportMeta.transportLabel} · {entity.speedKmh.toFixed(1)}km/h]
               </text>
-            )}
+            </g>
           </g>
         );
       })}
@@ -833,14 +985,14 @@ export function WorldDrawing({
           fill="#fde047"
           transform={`rotate(${heading})`}
         />
-        {/* Radar Ring */}
+        {/* Radar Sight Ring (75 units = 15 km on Travel Map) */}
         <circle
-          r={local ? 70 : 35}
+          r={local ? CARAVAN_RADAR_RADIUS_UNITS : 35}
           fill="none"
           stroke="#22c55e"
           strokeDasharray="3 5"
-          strokeWidth="1"
-          opacity="0.75"
+          strokeWidth="1.2"
+          opacity="0.8"
         />
         {!local && (
           <g transform="translate(18, 22)">
@@ -926,13 +1078,13 @@ export function WorldDrawing({
             />
           </g>
 
-          {/* Map Legend Box (Top Right) */}
-          <g transform="translate(770, 20)">
+          {/* Regional Threat Levels Legend Box (Top Right) */}
+          <g transform="translate(730, 18)">
             <rect
               x="0"
               y="0"
-              width="235"
-              height="92"
+              width="275"
+              height="94"
               rx="4"
               fill="#151d13"
               stroke="#475640"
@@ -947,125 +1099,27 @@ export function WorldDrawing({
               fontWeight="bold"
               fontFamily="monospace"
             >
-              LEGENDA DO MAPA & CARAVANAS:
+              SISTEMA DE NÍVEIS DO MAPA:
             </text>
 
-            <circle
-              cx="16"
-              cy="31"
-              r="4.5"
-              fill="#0369a1"
-              stroke="#38bdf8"
-              strokeWidth="1.2"
-            />
-            <text
-              x="26"
-              y="34"
-              fill="#ebdcb2"
-              fontSize="8.5"
-              fontFamily="monospace"
-            >
-              Mercadores
+            <circle cx="15" cy="31" r="4" fill="#22c55e" />
+            <text x="24" y="34" fill="#ebdcb2" fontSize="8.2" fontFamily="monospace">
+              Nv.1 Fronteira: Bandidos Fracos (Animais)
             </text>
 
-            <circle
-              cx="120"
-              cy="31"
-              r="4.5"
-              fill="#b45309"
-              stroke="#fbbf24"
-              strokeWidth="1.2"
-            />
-            <text
-              x="130"
-              y="34"
-              fill="#ebdcb2"
-              fontSize="8.5"
-              fontFamily="monospace"
-            >
-              Viajantes
+            <circle cx="15" cy="47" r="4" fill="#eab308" />
+            <text x="24" y="50" fill="#ebdcb2" fontSize="8.2" fontFamily="monospace">
+              Nv.2 Cânions: Foras-da-Lei (Cavalos/.38)
             </text>
 
-            <circle
-              cx="16"
-              cy="49"
-              r="4.5"
-              fill="#15803d"
-              stroke="#4ade80"
-              strokeWidth="1.2"
-            />
-            <text
-              x="26"
-              y="52"
-              fill="#ebdcb2"
-              fontSize="8.5"
-              fontFamily="monospace"
-            >
-              Polícia (Cavalo/V8)
+            <circle cx="15" cy="63" r="4" fill="#f97316" />
+            <text x="24" y="66" fill="#ebdcb2" fontSize="8.2" fontFamily="monospace">
+              Nv.3 Rodovias: Gangues em Carros V8
             </text>
 
-            <circle
-              cx="132"
-              cy="49"
-              r="4.5"
-              fill="#b91c1c"
-              stroke="#f87171"
-              strokeWidth="1.2"
-            />
-            <text
-              x="142"
-              y="52"
-              fill="#ebdcb2"
-              fontSize="8.5"
-              fontFamily="monospace"
-            >
-              Bandidos
-            </text>
-
-            <line
-              x1="10"
-              y1="72"
-              x2="28"
-              y2="72"
-              stroke="#3f382c"
-              strokeWidth="4"
-            />
-            <line
-              x1="10"
-              y1="72"
-              x2="28"
-              y2="72"
-              stroke="#ebdcb2"
-              strokeWidth="1.5"
-              strokeDasharray="3 3"
-            />
-            <text
-              x="34"
-              y="75"
-              fill="#ebdcb2"
-              fontSize="8.5"
-              fontFamily="monospace"
-            >
-              Rodovia Antiga
-            </text>
-
-            <line
-              x1="120"
-              y1="72"
-              x2="138"
-              y2="72"
-              stroke="#7d6741"
-              strokeWidth="2"
-              strokeDasharray="3 3"
-            />
-            <text
-              x="144"
-              y="75"
-              fill="#ebdcb2"
-              fontSize="8.5"
-              fontFamily="monospace"
-            >
-              Trilha do Deserto
+            <circle cx="15" cy="79" r="4" fill="#ef4444" />
+            <text x="24" y="82" fill="#fca5a5" fontSize="8.2" fontWeight="bold" fontFamily="monospace">
+              Nv.4 Capital/Militar: Fuzis & Caminhões V8
             </text>
           </g>
         </>
@@ -1432,8 +1486,11 @@ export function StrategicWorldMap({
     }
   };
 
+  const currentZone = getMapZoneInfo(position);
+  const selectedTownZone = getMapZoneInfo(town.coordinates);
+
   return (
-    <div className="h-full w-full flex flex-col lg:flex-row min-h-0 overflow-hidden gap-3">
+    <div className="h-full w-full flex flex-col lg:flex-row min-h-0 overflow-hidden gap-2.5">
       {/* 1. CENTRAL MAP VIEWPORT */}
       <div className="flex-1 min-h-0 relative flex flex-col justify-between caravan-screen-bezel p-1 overflow-hidden">
         <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-hidden">
@@ -1450,13 +1507,20 @@ export function StrategicWorldMap({
 
         {/* Bottom Map Telemetry & Gate Arrival Bar */}
         <div className="bg-[#172016] border-t-2 border-[#3c4a35] px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 shrink-0 text-xs font-mono">
-          <div className="flex items-center gap-3 text-[#ebdcb2]">
+          <div className="flex items-center gap-2.5 text-[#ebdcb2]">
             <span className="font-bold text-[#fde047]">
               POS: {position.x.toFixed(1)}, {position.y.toFixed(1)}
             </span>
             <span className="text-[#6d8065]">|</span>
+            <span
+              className="font-black uppercase text-[11px]"
+              style={{ color: currentZone.badgeColor }}
+            >
+              {currentZone.namePt}
+            </span>
+            <span className="text-[#6d8065]">|</span>
             <span className="text-amber-300 font-bold">
-              RUMO ATUAL: {heading.toFixed(1)}°
+              RUMO: {heading.toFixed(1)}°
             </span>
             <span className="text-[#6d8065]">|</span>
             <span className="text-emerald-400 font-bold">
@@ -1492,16 +1556,19 @@ export function StrategicWorldMap({
         </div>
       </div>
 
-      {/* 2. RIGHT CARAVANEER TACTICAL CONTEXT DOCK */}
-      <div className="w-80 lg:w-88 shrink-0 flex flex-col gap-2.5 overflow-y-auto pr-1">
-        {/* Module A: Market Price Index (without COMPRA/VENDA badges) */}
-        <section className="caravan-bezel p-3 space-y-2">
+      {/* 2. RIGHT CARAVANEER TACTICAL CONTEXT DOCK (ZERO-SCROLL) */}
+      <div className="w-80 lg:w-88 shrink-0 flex flex-col justify-between gap-2 overflow-hidden">
+        {/* Module A: Market Price Index & Regional Threat Level */}
+        <section className="caravan-bezel p-2.5 space-y-1.5 shrink-0">
           <div className="flex items-center justify-between border-b border-[#3c4a35] pb-1">
-            <h4 className="text-[11px] font-black uppercase tracking-wider text-[#fde047]">
-              Cotações Locais ({town.name})
+            <h4 className="text-[11px] font-black uppercase tracking-wider text-[#fde047] truncate">
+              {town.name} (Nv.{selectedTownZone.level})
             </h4>
-            <span className="text-[10px] font-mono text-[#95a38e]">
-              Preço Médio
+            <span
+              className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#121811] border border-[#3c4a35]"
+              style={{ color: selectedTownZone.badgeColor }}
+            >
+              {selectedTownZone.transportDescPt}
             </span>
           </div>
 
@@ -1512,12 +1579,10 @@ export function StrategicWorldMap({
               return (
                 <div
                   key={item.name}
-                  className="flex items-center justify-between py-1 px-1.5 font-mono"
+                  className="flex items-center justify-between py-0.5 px-1.5 font-mono"
                 >
                   <span className="text-[#ebdcb2] text-[11px]">{item.name}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-[#fde047]">${price}</span>
-                  </div>
+                  <span className="font-bold text-[#fde047]">${price}</span>
                 </div>
               );
             })}
@@ -1525,83 +1590,88 @@ export function StrategicWorldMap({
         </section>
 
         {/* Module B: Compass Measurement & Smooth Movement */}
-        <section className="caravan-bezel p-3 space-y-2.5">
-          <div className="flex items-center justify-between border-b border-[#3c4a35] pb-1">
-            <h4 className="text-[11px] font-black uppercase tracking-wider text-[#fde047]">
-              Bússola & Logística da Expedição
-            </h4>
-            <span className="text-[10px] font-mono text-emerald-400">
-              {compassTarget?.snappedTown
-                ? SETTLEMENTS[compassTarget.snappedTown].name
-                : "Rumo Livre"}
-            </span>
+        <section className="caravan-bezel p-2.5 flex-1 min-h-0 flex flex-col justify-between">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between border-b border-[#3c4a35] pb-1">
+              <h4 className="text-[11px] font-black uppercase tracking-wider text-[#fde047]">
+                Bússola & Logística da Expedição
+              </h4>
+              <span className="text-[10px] font-mono text-emerald-400 truncate">
+                {compassTarget?.snappedTown
+                  ? SETTLEMENTS[compassTarget.snappedTown].name
+                  : "Rumo Livre"}
+              </span>
+            </div>
+
+            <p className="text-[10px] text-[#c5b896] leading-snug">
+              Clique e arraste a bússola no mapa até a cidade destino para
+              calcular o grau. Caravanas ficam ocultas no Atlas e aparecem no
+              radar de viagem ao se aproximarem.
+            </p>
+
+            <div className="grid grid-cols-3 gap-1.5 text-center caravan-gauge p-1.5">
+              <div>
+                <span className="text-[9px] text-[#95a38e] block uppercase">
+                  Grau (Rumo)
+                </span>
+                <strong className="font-mono text-xs text-[#fde047]">
+                  {measuredBearing.toFixed(1)}°
+                </strong>
+              </div>
+              <div>
+                <span className="text-[9px] text-[#95a38e] block uppercase">
+                  Distância
+                </span>
+                <strong className="font-mono text-xs text-[#ebdcb2]">
+                  {measuredDistance.toFixed(1)} km
+                </strong>
+              </div>
+              <div>
+                <span className="text-[9px] text-[#95a38e] block uppercase">
+                  Tempo Est.
+                </span>
+                <strong className="font-mono text-xs text-[#ebdcb2]">
+                  {hours.toFixed(1)} h
+                </strong>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-1 text-[10px] font-mono caravan-gauge p-1.5">
+              <span className="text-[#38bdf8]">
+                Água ~{((upkeep.totalWaterPerDay * hours) / 24).toFixed(1)} L
+              </span>
+              <span className="text-[#ebdcb2]">
+                Rações ~{((upkeep.humanFoodPerDay * hours) / 24).toFixed(1)}
+              </span>
+              <span className="text-[#a7f3d0]">
+                Forragem ~{((upkeep.animalForagePerDay * hours) / 24).toFixed(1)}
+              </span>
+              <span className="text-[#fb923c]">Gasolina {fuel.toFixed(1)} L</span>
+            </div>
           </div>
 
-          <p className="text-[11px] text-[#c5b896] leading-snug">
-            Clique e arraste a bússola até a cidade destino para calcular o grau
-            exato. Em seguida, inicie o deslocamento fluido no rumo calculado.
-          </p>
+          <div className="space-y-1.5 pt-1">
+            {onStepMove && (
+              <button
+                type="button"
+                onClick={onStepMove}
+                className="w-full py-2 px-3 rounded font-black text-xs uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-stone-950 border-2 border-amber-300 shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-y-0.5"
+              >
+                <Footprints size={15} />{" "}
+                {moving
+                  ? `Deslocando no Rumo (${heading.toFixed(1)}°)…`
+                  : `Avançar Fluido no Rumo (${heading.toFixed(1)}°)`}
+              </button>
+            )}
 
-          <div className="grid grid-cols-3 gap-1.5 text-center caravan-gauge p-1.5">
-            <div>
-              <span className="text-[9px] text-[#95a38e] block uppercase">
-                Grau (Rumo)
-              </span>
-              <strong className="font-mono text-sm text-[#fde047]">
-                {measuredBearing.toFixed(1)}°
-              </strong>
-            </div>
-            <div>
-              <span className="text-[9px] text-[#95a38e] block uppercase">
-                Distância
-              </span>
-              <strong className="font-mono text-sm text-[#ebdcb2]">
-                {measuredDistance.toFixed(1)} km
-              </strong>
-            </div>
-            <div>
-              <span className="text-[9px] text-[#95a38e] block uppercase">
-                Tempo Est.
-              </span>
-              <strong className="font-mono text-sm text-[#ebdcb2]">
-                {hours.toFixed(1)} h
-              </strong>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-1.5 text-[11px] font-mono caravan-gauge p-2">
-            <span className="text-[#38bdf8]">
-              Água ~{((upkeep.totalWaterPerDay * hours) / 24).toFixed(1)} L
-            </span>
-            <span className="text-[#ebdcb2]">
-              Rações ~{((upkeep.humanFoodPerDay * hours) / 24).toFixed(1)}
-            </span>
-            <span className="text-[#a7f3d0]">
-              Forragem ~{((upkeep.animalForagePerDay * hours) / 24).toFixed(1)}
-            </span>
-            <span className="text-[#fb923c]">Gasolina {fuel.toFixed(1)} L</span>
-          </div>
-
-          {onStepMove && (
             <button
               type="button"
-              onClick={onStepMove}
-              className="w-full py-2.5 px-3 rounded font-black text-xs uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-stone-950 border-2 border-amber-300 shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-y-0.5"
+              onClick={onTravel}
+              className="w-full py-1.5 px-3 rounded font-black text-xs uppercase tracking-wider bg-[#3f5038] hover:bg-[#4f6446] text-[#fef08a] border-2 border-[#6d885f] shadow flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-y-0.5"
             >
-              <Footprints size={16} />{" "}
-              {moving
-                ? `Deslocando no Rumo (${heading.toFixed(1)}°)…`
-                : `Avançar Fluido no Rumo (${heading.toFixed(1)}°)`}
+              <Compass size={14} /> Ir para Tela de Viagem [2]
             </button>
-          )}
-
-          <button
-            type="button"
-            onClick={onTravel}
-            className="w-full py-2 px-3 rounded font-black text-xs uppercase tracking-wider bg-[#3f5038] hover:bg-[#4f6446] text-[#fef08a] border-2 border-[#6d885f] shadow flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-y-0.5"
-          >
-            <Compass size={15} /> Ir para Tela de Viagem [2]
-          </button>
+          </div>
         </section>
       </div>
 
@@ -1672,6 +1742,7 @@ export function TravelScreen({
   const moving = !!state.exploration?.isMoving && !state.exploration.isPaused;
   const terrain = getTerrainAt(position);
   const speed = getCaravanSpeedBreakdown(state, terrain);
+  const currentZone = getMapZoneInfo(position);
 
   const commitHeading = () => {
     const n = Number(draft ?? heading);
@@ -1693,17 +1764,22 @@ export function TravelScreen({
     onHeading(Math.round(deg * 10) / 10);
   };
 
-  // Closest roving caravans sorted by distance
+  // Only show caravans that have approached within the player's radar radius (75 map units = 15 km)
   const nearbyCaravans = [...(state.rovingEntities ?? [])]
+    .filter(
+      (entity) =>
+        Math.hypot(entity.x - position.x, entity.y - position.y) <=
+        CARAVAN_RADAR_RADIUS_UNITS
+    )
     .map((entity) => ({
       entity,
       distKm: getDistanceKm(position, { x: entity.x, y: entity.y }),
     }))
     .sort((a, b) => a.distKm - b.distKm)
-    .slice(0, 4);
+    .slice(0, 3);
 
   return (
-    <div className="h-full w-full flex flex-col lg:flex-row min-h-0 overflow-hidden gap-3">
+    <div className="h-full w-full flex flex-col lg:flex-row min-h-0 overflow-hidden gap-2.5">
       {/* LOCAL DESERT VIEWPORT */}
       <div className="flex-1 min-h-0 flex flex-col justify-between caravan-screen-bezel p-1 overflow-hidden">
         <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-hidden">
@@ -1721,11 +1797,20 @@ export function TravelScreen({
               ? `Caravana em movimento fluido (${heading.toFixed(1)}° · ${speed.effectiveSpeedKmh.toFixed(1)} km/h)`
               : `Clique em qualquer ponto do mapa para navegar fluidamente (Rumo atual: ${heading.toFixed(1)}°)`}
           </div>
+          <div
+            className="pointer-events-none absolute top-2 right-2 rounded bg-[#141b12]/95 border px-2 py-1 text-[10px] font-mono font-black uppercase"
+            style={{
+              borderColor: currentZone.badgeColor,
+              color: currentZone.badgeColor,
+            }}
+          >
+            {currentZone.namePt} · {currentZone.transportDescPt}
+          </div>
         </div>
 
         {/* BOTTOM ACTION & TELEMETRY BAR ON MAP */}
-        <div className="bg-[#172016] border-t-2 border-[#3c4a35] p-2.5 flex flex-wrap items-center justify-between gap-2 shrink-0">
-          <div className="flex items-center gap-3 text-xs font-mono text-[#ebdcb2]">
+        <div className="bg-[#172016] border-t-2 border-[#3c4a35] px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2.5 text-xs font-mono text-[#ebdcb2]">
             <span className="font-bold text-[#fde047]">
               POS: {position.x.toFixed(1)}, {position.y.toFixed(1)}
             </span>
@@ -1747,7 +1832,7 @@ export function TravelScreen({
             {nearby && (
               <button
                 type="button"
-                className="py-1.5 px-3 rounded font-black text-xs uppercase tracking-wider bg-[#3f5038] hover:bg-[#4f6446] text-[#fef08a] border-2 border-[#6d885f] shadow flex items-center gap-1.5 cursor-pointer"
+                className="py-1 px-3 rounded font-black text-xs uppercase tracking-wider bg-[#3f5038] hover:bg-[#4f6446] text-[#fef08a] border-2 border-[#6d885f] shadow flex items-center gap-1.5 cursor-pointer"
                 disabled={moving}
                 onClick={() => onEnter(nearby)}
               >
@@ -1757,7 +1842,7 @@ export function TravelScreen({
             {nearbySecret && (
               <button
                 type="button"
-                className="py-1.5 px-3 rounded font-black text-xs uppercase tracking-wider bg-amber-700 hover:bg-amber-600 text-stone-950 border-2 border-amber-500 shadow flex items-center gap-1.5 cursor-pointer"
+                className="py-1 px-3 rounded font-black text-xs uppercase tracking-wider bg-amber-700 hover:bg-amber-600 text-stone-950 border-2 border-amber-500 shadow flex items-center gap-1.5 cursor-pointer"
                 disabled={moving}
                 onClick={() => onScavenge?.(nearbySecret.id)}
               >
@@ -1768,201 +1853,212 @@ export function TravelScreen({
         </div>
       </div>
 
-      {/* RIGHT CARAVANEER TACTICAL COMPASS & RADAR DOCK */}
-      <div className="w-80 lg:w-88 shrink-0 flex flex-col gap-2.5 overflow-y-auto pr-1">
-        <div className="caravan-bezel p-2.5 space-y-2">
-          {/* DRAGGABLE ANALOG COMPASS */}
-          <div
-            ref={dialRef}
-            onPointerDown={(e) => {
-              dialDragRef.current = true;
-              e.currentTarget.setPointerCapture(e.pointerId);
-              updateDialBearing(e.clientX, e.clientY);
-            }}
-            onPointerMove={(e) => {
-              if (!dialDragRef.current) return;
-              updateDialBearing(e.clientX, e.clientY);
-            }}
-            onPointerUp={(e) => {
-              dialDragRef.current = false;
-              try {
-                e.currentTarget.releasePointerCapture(e.pointerId);
-              } catch {
-                // ignore
-              }
-            }}
-            title="Clique e arraste para girar a agulha da bússola"
-            className="relative mx-auto h-28 w-28 rounded-full border-4 border-[#47573f] bg-[#c5b083] shadow-inner cursor-grab active:cursor-grabbing select-none"
-          >
-            <span className="absolute left-1/2 top-1 -translate-x-1/2 font-serif font-black text-[11px] text-[#141813]">
-              N · 0°
-            </span>
-            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-[#141813]">
-              90°
-            </span>
-            <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-bold text-[#141813]">
-              180°
-            </span>
-            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-[#141813]">
-              270°
-            </span>
-            <svg
-              viewBox="0 0 160 160"
-              className="h-full w-full pointer-events-none"
-              aria-label={`Compass bearing ${heading.toFixed(1)} degrees`}
+      {/* RIGHT CARAVANEER TACTICAL COMPASS & RADAR DOCK (ZERO-SCROLL) */}
+      <div className="w-80 lg:w-88 shrink-0 flex flex-col justify-between gap-2 overflow-hidden">
+        {/* COMPACT SIDE-BY-SIDE COMPASS + CONTROLS */}
+        <div className="caravan-bezel p-2 space-y-1.5 shrink-0">
+          <div className="flex items-center gap-2.5">
+            {/* DRAGGABLE ANALOG COMPASS */}
+            <div
+              ref={dialRef}
+              onPointerDown={(e) => {
+                dialDragRef.current = true;
+                e.currentTarget.setPointerCapture(e.pointerId);
+                updateDialBearing(e.clientX, e.clientY);
+              }}
+              onPointerMove={(e) => {
+                if (!dialDragRef.current) return;
+                updateDialBearing(e.clientX, e.clientY);
+              }}
+              onPointerUp={(e) => {
+                dialDragRef.current = false;
+                try {
+                  e.currentTarget.releasePointerCapture(e.pointerId);
+                } catch {
+                  // ignore
+                }
+              }}
+              title="Clique e arraste para girar a agulha da bússola"
+              className="relative h-20 w-20 shrink-0 rounded-full border-4 border-[#47573f] bg-[#c5b083] shadow-inner cursor-grab active:cursor-grabbing select-none"
             >
-              <g transform={`rotate(${heading} 80 80)`}>
-                <path
-                  d="M80 28L92 80 80 72 68 80Z"
-                  fill="#b91c1c"
-                  stroke="#450a0a"
-                  strokeWidth="1.2"
-                />
-                <path
-                  d="M80 132L92 80 80 88 68 80Z"
-                  fill="#1c251a"
-                  stroke="#141813"
-                  strokeWidth="1.2"
-                />
-              </g>
-              <circle
-                cx="80"
-                cy="80"
-                r="7"
-                fill="#fde047"
-                stroke="#253022"
-                strokeWidth="2"
-              />
-            </svg>
-          </div>
-
-          {/* BEARING INPUTS */}
-          <div className="caravan-gauge p-2 space-y-1.5">
-            <label
-              htmlFor="travel-bearing"
-              className="block text-[10px] font-black uppercase tracking-wider text-[#fde047]"
-            >
-              Rumo de Navegação (Graus)
-            </label>
-            <div className="flex gap-1.5">
-              <input
-                id="travel-bearing"
-                type="number"
-                min="0"
-                max="359.9"
-                step=".1"
-                value={draft ?? heading.toFixed(1)}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") commitHeading();
-                }}
-                className="game-input min-w-0 flex-1 text-xs py-1 font-bold"
-              />
-              <button
-                className="game-secondary py-1 px-2.5 text-xs font-bold"
-                onClick={commitHeading}
+              <span className="absolute left-1/2 top-0.5 -translate-x-1/2 font-serif font-black text-[9px] text-[#141813]">
+                N·0°
+              </span>
+              <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] font-bold text-[#141813]">
+                90°
+              </span>
+              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[8px] font-bold text-[#141813]">
+                180°
+              </span>
+              <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[8px] font-bold text-[#141813]">
+                270°
+              </span>
+              <svg
+                viewBox="0 0 160 160"
+                className="h-full w-full pointer-events-none"
+                aria-label={`Compass bearing ${heading.toFixed(1)} degrees`}
               >
-                Ajustar
-              </button>
+                <g transform={`rotate(${heading} 80 80)`}>
+                  <path
+                    d="M80 28L92 80 80 72 68 80Z"
+                    fill="#b91c1c"
+                    stroke="#450a0a"
+                    strokeWidth="1.2"
+                  />
+                  <path
+                    d="M80 132L92 80 80 88 68 80Z"
+                    fill="#1c251a"
+                    stroke="#141813"
+                    strokeWidth="1.2"
+                  />
+                </g>
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="7"
+                  fill="#fde047"
+                  stroke="#253022"
+                  strokeWidth="2"
+                />
+              </svg>
             </div>
-            <div className="grid grid-cols-4 gap-1">
-              {[0, 90, 180, 270].map((h, i) => (
-                <button
-                  key={h}
-                  className="game-secondary py-0.5 text-xs font-bold"
-                  onClick={() => {
-                    setDraft(null);
-                    onHeading(h);
+
+            {/* BEARING INPUTS */}
+            <div className="flex-1 min-w-0 caravan-gauge p-1.5 space-y-1">
+              <label
+                htmlFor="travel-bearing"
+                className="block text-[9px] font-black uppercase tracking-wider text-[#fde047]"
+              >
+                Rumo de Navegação (Graus)
+              </label>
+              <div className="flex gap-1">
+                <input
+                  id="travel-bearing"
+                  type="number"
+                  min="0"
+                  max="359.9"
+                  step=".1"
+                  value={draft ?? heading.toFixed(1)}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitHeading();
                   }}
+                  className="game-input min-w-0 flex-1 text-xs py-0.5 px-1.5 font-bold"
+                />
+                <button
+                  className="game-secondary py-0.5 px-2 text-[11px] font-bold"
+                  onClick={commitHeading}
                 >
-                  {["N", "L", "S", "O"][i]}
+                  Fixar
                 </button>
-              ))}
+              </div>
+              <div className="grid grid-cols-4 gap-1">
+                {[0, 90, 180, 270].map((h, i) => (
+                  <button
+                    key={h}
+                    className="game-secondary py-0.5 text-[10px] font-bold"
+                    onClick={() => {
+                      setDraft(null);
+                      onHeading(h);
+                    }}
+                  >
+                    {["N", "L", "S", "O"][i]}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* CONTINUOUS FLUID MARCH TOGGLE BUTTON */}
-          <button
-            className={`w-full justify-center py-2 text-xs font-black uppercase tracking-wider shadow cursor-pointer transition-all active:translate-y-0.5 ${
-              moving ? "game-secondary" : "game-primary"
-            }`}
-            onClick={onMove}
-          >
-            {moving ? <Pause size={15} /> : <Play size={15} />}
-            {moving
-              ? "Pausar Movimento [Espaço]"
-              : `Iniciar Marcha Fluida (${heading.toFixed(1)}°) [Espaço]`}
-          </button>
-
-          {/* SMOOTH SEGMENT GLIDE BUTTON */}
-          {onStepMove && !moving && (
+          {/* CONTINUOUS FLUID MARCH & STEP BUTTONS */}
+          <div className="flex flex-col gap-1">
             <button
-              type="button"
-              onClick={onStepMove}
-              className="w-full py-1.5 px-3 rounded font-black text-[11px] uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-stone-950 border-2 border-amber-300 shadow flex items-center justify-center gap-1.5 cursor-pointer transition-all active:translate-y-0.5"
+              className={`w-full justify-center py-1.5 text-xs font-black uppercase tracking-wider shadow cursor-pointer transition-all active:translate-y-0.5 ${
+                moving ? "game-secondary" : "game-primary"
+              }`}
+              onClick={onMove}
             >
-              <Footprints size={14} /> Avançar Trecho Fluido ({heading.toFixed(1)}°)
+              {moving ? <Pause size={14} /> : <Play size={14} />}
+              {moving
+                ? "Pausar Movimento [Espaço]"
+                : `Iniciar Marcha Fluida (${heading.toFixed(1)}°) [Espaço]`}
             </button>
-          )}
+
+            {onStepMove && !moving && (
+              <button
+                type="button"
+                onClick={onStepMove}
+                className="w-full py-1 px-2.5 rounded font-black text-[11px] uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-stone-950 border-2 border-amber-300 shadow flex items-center justify-center gap-1.5 cursor-pointer transition-all active:translate-y-0.5"
+              >
+                <Footprints size={13} /> Avançar Trecho Fluido ({heading.toFixed(1)}°)
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* RADAR OF MOVING CARAVANS IN THE REGION */}
-        <div className="caravan-bezel p-2.5 space-y-1.5">
-          <div className="flex items-center justify-between border-b border-[#3c4a35] pb-1">
+        {/* RADAR OF APPROACHING CARAVANS (WITHIN 15 KM / 75 UNITS) */}
+        <div className="caravan-bezel p-2 flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between border-b border-[#3c4a35] pb-1 shrink-0">
             <span className="text-[10px] font-black uppercase tracking-wider text-[#fde047]">
-              Caravanas em Movimento (Radar)
+              Radar de Proximidade (≤ 15 km)
             </span>
-            <span className="text-[9px] font-mono text-[#95a38e]">
-              Estrada & Fora
+            <span className="text-[9px] font-mono text-emerald-400 font-bold">
+              {nearbyCaravans.length} Visíveis
             </span>
           </div>
 
-          <div className="space-y-1 max-h-40 overflow-y-auto pr-0.5">
-            {nearbyCaravans.map(({ entity, distKm }) => {
-              const meta = getEntityTypeMeta(entity.type);
-              const transportMeta = getEntityTransportVisual(entity);
-              return (
-                <div
-                  key={entity.id}
-                  onClick={() => setInspectedEntity(entity)}
-                  className="caravan-gauge px-2 py-1.5 border border-[#2d3829] hover:border-[#fde047] flex items-center justify-between gap-2 cursor-pointer transition-colors"
-                >
-                  <div className="min-w-0 font-mono">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="px-1 py-0.2 text-[8px] font-black uppercase"
-                        style={{
-                          backgroundColor: meta.badgeColor,
-                          color: "#fef08a",
-                        }}
-                      >
-                        {meta.labelPt}
-                      </span>
-                      <span className="text-[10px] font-bold text-[#ebdcb2] truncate">
-                        {entity.name}
-                      </span>
+          <div className="flex-1 min-h-0 flex flex-col justify-center space-y-1 overflow-hidden pt-1">
+            {nearbyCaravans.length === 0 ? (
+              <div className="caravan-gauge p-2.5 text-center text-[10px] font-mono text-[#95a38e]">
+                Nenhuma caravana dentro do raio de visão (15 km). As caravanas
+                aparecem no mapa de viagem apenas quando se aproximam.
+              </div>
+            ) : (
+              nearbyCaravans.map(({ entity, distKm }) => {
+                const meta = getEntityTypeMeta(entity.type);
+                const transportMeta = getEntityTransportVisual(entity);
+                return (
+                  <div
+                    key={entity.id}
+                    onClick={() => setInspectedEntity(entity)}
+                    className="caravan-gauge px-2 py-1 border border-[#2d3829] hover:border-[#fde047] flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                  >
+                    <div className="min-w-0 font-mono">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="px-1 py-0.2 text-[8px] font-black uppercase"
+                          style={{
+                            backgroundColor: meta.badgeColor,
+                            color: "#fef08a",
+                          }}
+                        >
+                          {meta.labelPt}
+                        </span>
+                        <span className="text-[10px] font-bold text-[#ebdcb2] truncate">
+                          {entity.name}
+                        </span>
+                      </div>
+                      <div className="text-[9px] text-[#95a38e] truncate">
+                        {transportMeta.transportLabel} · {entity.speedKmh.toFixed(1)} km/h ·{" "}
+                        {entity.routeMode === "offroad" ? "Fora da Estrada" : "Estrada"}
+                      </div>
                     </div>
-                    <div className="text-[9px] text-[#95a38e] truncate">
-                      {transportMeta.transportLabel} · {entity.speedKmh.toFixed(1)} km/h ·{" "}
-                      {entity.routeMode === "offroad" ? "Fora da Estrada" : "Estrada"}
+                    <div className="shrink-0 text-right font-mono">
+                      <div className="text-[10px] font-bold text-[#fde047]">
+                        {distKm.toFixed(1)} km
+                      </div>
+                      <span className="text-[8px] text-emerald-400 uppercase font-bold">
+                        Ver →
+                      </span>
                     </div>
                   </div>
-                  <div className="shrink-0 text-right font-mono">
-                    <div className="text-[10px] font-bold text-[#fde047]">
-                      {distKm.toFixed(1)} km
-                    </div>
-                    <span className="text-[8px] text-emerald-400 uppercase font-bold">
-                      Ver →
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
         {/* FLEET MAINTENANCE & CONDITIONS */}
-        <div className="caravan-bezel p-2.5 space-y-2">
+        <div className="caravan-bezel p-2 space-y-1.5 shrink-0">
           <div className="flex justify-between items-center text-xs border-b border-[#3c4a35] pb-1">
             <span className="text-[10px] font-black uppercase tracking-wider text-[#fde047]">
               Condição da Frota:
@@ -1981,23 +2077,23 @@ export function TravelScreen({
           </div>
 
           {state.isBrokenDown && (
-            <div className="rounded bg-red-950/80 border border-red-800 text-red-300 font-bold text-center py-1 text-xs">
+            <div className="rounded bg-red-950/80 border border-red-800 text-red-300 font-bold text-center py-0.5 text-[10px]">
               AVARIA CRÍTICA (-50% Velocidade)
             </div>
           )}
 
           {((state.inventory.tools ?? 0) > 0 ||
             (state.inventory.diesel_parts ?? 0) > 0) && (
-            <div className="flex flex-col gap-1">
+            <div className="grid grid-cols-2 gap-1">
               {(state.inventory.tools ?? 0) > 0 && (
                 <button
                   type="button"
                   disabled={moving || (state.vehicleCondition ?? 100) >= 100}
                   onClick={() => onRepair?.("tools")}
-                  className="game-secondary py-1 text-[11px] justify-between px-2"
+                  className="game-secondary py-0.5 text-[10px] justify-between px-1.5"
                 >
                   <span className="flex items-center gap-1">
-                    <Wrench size={12} /> Reparo de Trilha
+                    <Wrench size={11} /> Ferram.
                   </span>
                   <span className="text-emerald-400 font-bold">+35%</span>
                 </button>
@@ -2007,10 +2103,10 @@ export function TravelScreen({
                   type="button"
                   disabled={moving || (state.vehicleCondition ?? 100) >= 100}
                   onClick={() => onRepair?.("diesel_parts")}
-                  className="game-secondary py-1 text-[11px] justify-between px-2"
+                  className="game-secondary py-0.5 text-[10px] justify-between px-1.5"
                 >
                   <span className="flex items-center gap-1">
-                    <Wrench size={12} /> Substituir Peças
+                    <Wrench size={11} /> Peças
                   </span>
                   <span className="text-emerald-400 font-bold">+75%</span>
                 </button>
@@ -2018,29 +2114,29 @@ export function TravelScreen({
             </div>
           )}
 
-          <div className="pt-1 border-t border-[#3c4a35] space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
+          <div className="pt-1 border-t border-[#3c4a35] flex items-center justify-between gap-1.5">
+            <div className="flex items-center gap-1 text-[11px]">
               <label htmlFor="travel-rate" className="text-[#ebdcb2] font-bold">
-                Velocidade da Animação:
+                Vel:
               </label>
               <select
                 id="travel-rate"
-                className="game-input text-xs py-0.5 px-2 font-bold"
+                className="game-input text-[11px] py-0.5 px-1.5 font-bold"
                 value={rate}
                 onChange={(e) => onRate(Number(e.target.value))}
               >
-                <option value="1">1× (Normal)</option>
-                <option value="2">2× (Rápido)</option>
-                <option value="4">4× (Expresso)</option>
+                <option value="1">1×</option>
+                <option value="2">2×</option>
+                <option value="4">4×</option>
               </select>
             </div>
 
             <button
-              className="game-secondary w-full justify-center py-1 text-xs font-bold"
+              className="game-secondary flex-1 justify-center py-1 text-[11px] font-bold"
               disabled={moving || !!state.currentSettlement}
               onClick={onCamp}
             >
-              <Tent size={13} /> Acampar por 6 horas (Descanso)
+              <Tent size={12} /> Acampar (6h)
             </button>
           </div>
         </div>

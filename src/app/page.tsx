@@ -404,16 +404,30 @@ export default function MerchantRouteGamePage() {
   };
   const handleTriggerHostileEncounterFromCaravan = (entity: RovingEntity) => {
     setState(prev => {
-      const position = getWorldPosition(prev);
       const nearRoute = [...ROUTES].sort((a, b) => {
         const midpoint = (r: typeof a) => ({
           x: (SETTLEMENTS[r.from].coordinates.x + SETTLEMENTS[r.to].coordinates.x) / 2,
           y: (SETTLEMENTS[r.from].coordinates.y + SETTLEMENTS[r.to].coordinates.y) / 2,
         });
         const da = midpoint(a), db = midpoint(b);
-        return Math.hypot(position.x - da.x, position.y - da.y) - Math.hypot(position.x - db.x, position.y - db.y);
+        return Math.hypot(entity.x - da.x, entity.y - da.y) - Math.hypot(entity.x - db.x, entity.y - db.y);
       })[0];
-      const baseEncounter = generateRoadEncounter(prev, nearRoute);
+      const stateAtEntity: GameState = {
+        ...prev,
+        currentSettlement: null,
+        exploration: {
+          ...(prev.exploration ?? {
+            heading: 0,
+            isMoving: false,
+            isPaused: true,
+            terrain: "scorched_flats",
+            distanceTravelledKm: 0,
+          }),
+          x: entity.x,
+          y: entity.y,
+        },
+      };
+      const baseEncounter = generateRoadEncounter(stateAtEntity, nearRoute);
       const customEncounter = {
         ...baseEncounter,
         title: entity.name,
@@ -1798,7 +1812,7 @@ export default function MerchantRouteGamePage() {
           )}
 
           {activeTab === "town" && (
-            <div className="flex-1 min-h-0 overflow-y-auto caravan-screen-bezel p-3">
+            <div className="flex-1 min-h-0 overflow-hidden caravan-screen-bezel p-2 flex flex-col">
               <TownScene
                 state={state}
                 settlementId={activeSettlementForHub}
@@ -1822,18 +1836,18 @@ export default function MerchantRouteGamePage() {
           {activeTab === "character" && (
             <div className="h-full w-full flex flex-col md:flex-row min-h-0 overflow-hidden gap-2">
               {/* LEFT COLUMN: FLEET & ATTRIBUTES */}
-              <div className="w-80 lg:w-96 shrink-0 flex flex-col gap-2 overflow-y-auto pr-1">
+              <div className="w-80 lg:w-96 shrink-0 flex flex-col justify-between gap-1.5 overflow-hidden">
                 {/* Fleet Composition */}
-                <section className="game-panel p-3">
-                  <h3 className="font-bold text-xs uppercase tracking-wider text-[#fef08a] mb-1">
+                <section className="game-panel p-2.5 shrink-0">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-[#fef08a] mb-0.5">
                     Composição da Frota
                   </h3>
-                  <p className="text-[11px] text-[#8d9887] mb-2 leading-relaxed">
+                  <p className="text-[10px] text-[#8d9887] mb-1.5 leading-snug">
                     Ative as unidades compradas quando estiver na cidade.
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1">
                     {state.ownedTransports.map(id => (
-                      <label key={id} className="game-secondary text-xs py-1 px-2 cursor-pointer">
+                      <label key={id} className="game-secondary text-[11px] py-0.5 px-2 cursor-pointer">
                         <input
                           type="checkbox"
                           disabled={!state.currentSettlement}
@@ -1855,8 +1869,8 @@ export default function MerchantRouteGamePage() {
                 </section>
 
                 {/* RPG Attributes Sheet */}
-                <section className="game-panel p-3 space-y-2">
-                  <div className="flex items-center justify-between border-b border-[#2d3527] pb-1.5">
+                <section className="game-panel p-2.5 space-y-1.5 flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-[#2d3527] pb-1 shrink-0">
                     <div>
                       <h3 className="font-bold text-xs uppercase tracking-wider text-[#fef08a]">
                         Atributos do Líder
@@ -1870,7 +1884,7 @@ export default function MerchantRouteGamePage() {
                     )}
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="space-y-1 flex-1 flex flex-col justify-evenly min-h-0">
                     {(
                       [
                         ["grit", "Grit (Resistência & Força)", `Max HP: ${getMaxHp(state.attributes)} | Carga: +${state.attributes.grit * 6}kg`],
@@ -1879,18 +1893,18 @@ export default function MerchantRouteGamePage() {
                         ["charisma", "Carisma (Trocas & Intimidação)", `Preços: ±${state.attributes.charisma * 2.5}% | Blefa guardas`],
                       ] as const
                     ).map(([key, title, desc]) => (
-                      <div key={key} className="flex items-center justify-between rounded bg-[#141813] border border-[#2d3527] p-2">
+                      <div key={key} className="flex items-center justify-between rounded bg-[#141813] border border-[#2d3527] px-2 py-1.5">
                         <div>
-                          <div className="font-bold text-xs text-[#e2d7ba]">{title}</div>
-                          <div className="text-[10px] text-[#8d9887]">{desc}</div>
+                          <div className="font-bold text-[11px] text-[#e2d7ba] leading-tight">{title}</div>
+                          <div className="text-[10px] text-[#8d9887] leading-tight">{desc}</div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-base font-bold text-[#fef08a]">{state.attributes[key]}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-sm font-bold text-[#fef08a]">{state.attributes[key]}</span>
                           <button
                             type="button"
                             disabled={state.unspentAttributePoints <= 0}
                             onClick={() => handleSpendAttributePoint(key)}
-                            className="rounded bg-emerald-600 px-2 py-1 text-[11px] font-bold text-stone-950 hover:bg-emerald-500 disabled:opacity-20 cursor-pointer"
+                            className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-stone-950 hover:bg-emerald-500 disabled:opacity-20 cursor-pointer"
                           >
                             +1
                           </button>
@@ -1901,7 +1915,7 @@ export default function MerchantRouteGamePage() {
                 </section>
 
                 {/* Daily Upkeep Logistics */}
-                <section className="game-panel p-3 text-xs space-y-1 bg-[#151814]">
+                <section className="game-panel p-2.5 text-[11px] space-y-0.5 bg-[#151814] shrink-0">
                   <h4 className="font-bold text-[10px] uppercase text-[#fef08a]">Logística Diária</h4>
                   <div className="flex justify-between text-[#8d9887]">
                     <span>Tripulação (Você + Escoltas):</span>

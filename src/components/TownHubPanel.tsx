@@ -123,17 +123,17 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-1 min-h-0 flex-col gap-2 overflow-hidden">
       {/* Settlement Header & NPC Selector */}
-      <div className="rounded-xl border border-amber-900/60 bg-stone-900/95 p-4 shadow-xl">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-800 pb-3">
+      <div className="shrink-0 rounded-xl border border-amber-900/60 bg-stone-900/95 p-2.5 shadow-xl">
+        <div hidden={hideNavigation} className={hideNavigation ? "hidden" : "flex flex-wrap items-center justify-between gap-2 border-b border-stone-800 pb-2 mb-2"}>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-amber-100">
+              <h2 className="text-base font-bold text-amber-100">
                 {settlement.name}
               </h2>
               <span
-                className={`rounded px-2.5 py-0.5 text-xs font-bold uppercase ${
+                className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
                   settlement.tier === "major_city"
                     ? "bg-sky-950 text-sky-300 border border-sky-700/60"
                     : "bg-amber-950 text-amber-300 border border-amber-700/60"
@@ -144,26 +144,23 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
                   : "Old West Frontier Town"}
               </span>
             </div>
-            <p className="text-xs text-stone-400 mt-0.5">
-              {settlement.subtitle}
-            </p>
           </div>
 
           {/* 4 Town NPC Role Buttons */}
-          <div hidden={hideNavigation} className={hideNavigation ? "hidden" : "flex flex-wrap gap-2"}>
+          <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
               onClick={() => {
                 setActiveNpc("general_trader");
                 setDialogueMode("greeting");
               }}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold transition cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                 activeNpc === "general_trader"
                   ? "bg-amber-600 text-stone-950 shadow-md"
                   : "bg-stone-800 text-stone-300 hover:bg-stone-700"
               }`}
             >
-              <ShoppingBag className="h-4 w-4" />
+              <ShoppingBag className="h-3.5 w-3.5" />
               General Goods & Arms
             </button>
 
@@ -173,13 +170,13 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
                 setActiveNpc("transport_master");
                 setDialogueMode("greeting");
               }}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold transition cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                 activeNpc === "transport_master"
                   ? "bg-amber-600 text-stone-950 shadow-md"
                   : "bg-stone-800 text-stone-300 hover:bg-stone-700"
               }`}
             >
-              <Truck className="h-4 w-4" />
+              <Truck className="h-3.5 w-3.5" />
               Transport & Fuel Shop
             </button>
 
@@ -189,13 +186,13 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
                 setActiveNpc("sheriff");
                 setDialogueMode("greeting");
               }}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold transition cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                 activeNpc === "sheriff"
                   ? "bg-amber-600 text-stone-950 shadow-md"
                   : "bg-stone-800 text-stone-300 hover:bg-stone-700"
               }`}
             >
-              <Shield className="h-4 w-4" />
+              <Shield className="h-3.5 w-3.5" />
               Sheriff & Bounties
             </button>
 
@@ -205,23 +202,23 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
                 setActiveNpc("saloon_barkeep");
                 setDialogueMode("greeting");
               }}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold transition cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                 activeNpc === "saloon_barkeep"
                   ? "bg-amber-600 text-stone-950 shadow-md"
                   : "bg-stone-800 text-stone-300 hover:bg-stone-700"
               }`}
             >
-              <Beer className="h-4 w-4" />
+              <Beer className="h-3.5 w-3.5" />
               Saloon & Mercenaries
             </button>
           </div>
         </div>
 
         {/* Interactive NPC Dialogue Box */}
-        <div className="mt-3 rounded-lg border border-amber-800/40 bg-stone-950/90 p-3.5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex items-start gap-3.5 max-w-3xl">
-              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-amber-600/60 bg-stone-900 shadow-md">
+        <div className="rounded-lg border border-amber-800/40 bg-stone-950/90 p-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 max-w-3xl">
+              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-amber-600/60 bg-stone-900 shadow-md">
                 <NpcPortraitSvg
                   role={activeNpc}
                   tier={settlement.tier}
@@ -230,14 +227,14 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-amber-200">
+                  <span className="text-xs font-bold text-amber-200">
                     {currentNpc.name}
                   </span>
-                  <span className="text-xs text-amber-500">
+                  <span className="text-[11px] text-amber-500">
                     — {currentNpc.title}
                   </span>
                 </div>
-                <p className="mt-1 text-sm italic text-stone-200 leading-relaxed">
+                <p className="mt-0.5 text-xs italic text-stone-200 leading-snug">
                   &ldquo;
                   {dialogueMode === "greeting"
                     ? currentNpc.greeting
@@ -250,11 +247,11 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
             </div>
 
             {/* Dialogue Topic Prompts */}
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1">
               <button
                 type="button"
                 onClick={() => setDialogueMode("greeting")}
-                className={`rounded px-2.5 py-1 text-xs font-medium cursor-pointer ${
+                className={`rounded px-2 py-1 text-[11px] font-medium cursor-pointer ${
                   dialogueMode === "greeting"
                     ? "bg-amber-800/70 text-amber-100"
                     : "bg-stone-800 text-stone-400 hover:text-stone-200"
@@ -265,7 +262,7 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
               <button
                 type="button"
                 onClick={() => setDialogueMode("lore")}
-                className={`rounded px-2.5 py-1 text-xs font-medium cursor-pointer ${
+                className={`rounded px-2 py-1 text-[11px] font-medium cursor-pointer ${
                   dialogueMode === "lore"
                     ? "bg-amber-800/70 text-amber-100"
                     : "bg-stone-800 text-stone-400 hover:text-stone-200"
@@ -276,7 +273,7 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
               <button
                 type="button"
                 onClick={() => setDialogueMode("tip")}
-                className={`rounded px-2.5 py-1 text-xs font-medium cursor-pointer ${
+                className={`rounded px-2 py-1 text-[11px] font-medium cursor-pointer ${
                   dialogueMode === "tip"
                     ? "bg-amber-800/70 text-amber-100"
                     : "bg-stone-800 text-stone-400 hover:text-stone-200"
@@ -289,9 +286,11 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
         </div>
       </div>
 
+      {/* Scrollable interior content box */}
+      <div className="flex-1 min-h-0 overflow-y-auto pr-0.5">
       {/* TAB 1: GENERAL GOODS & ARMS TRADER */}
       {activeNpc === "general_trader" && (
-        <div className="rounded-xl border border-amber-900/50 bg-stone-900/95 p-4">
+        <div className="rounded-xl border border-amber-900/50 bg-stone-900/95 p-3">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
               <Scale className="h-5 w-5 text-amber-400" />
@@ -968,6 +967,7 @@ export const TownHubPanel: React.FC<TownHubPanelProps> = ({
         </div>
       </div>
       )}
+      </div>
     </div>
   );
 };

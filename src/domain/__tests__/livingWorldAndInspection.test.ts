@@ -5,7 +5,8 @@ import {
   scavengeSecretLocation,
 } from "../navigationEngine";
 import { completeContractsAtSettlement } from "../economyEngine";
-import { createInitialGameState, SECRET_LOCATIONS } from "../worldData";
+import { generateRoadEncounter, getMapZoneLevel } from "../combatEngine";
+import { createInitialGameState, ROUTES, SECRET_LOCATIONS, SETTLEMENTS } from "../worldData";
 import { FreightContract, ItemId, PassengerContract, RovingEntity } from "../types";
 
 describe("Phase 3: Living World, Secret POIs & Contraband Gate Inspection", () => {
@@ -153,6 +154,67 @@ describe("Phase 3: Living World, Secret POIs & Contraband Gate Inspection", () =
     // Sub-pixel smooth movement on small animation slices
     const microAdvanced = advanceRovingEntities(entities, 0.015);
     expect(microAdvanced.some((e) => !Number.isInteger(e.x) || !Number.isInteger(e.y))).toBe(true);
+  });
+
+  it("divides the map into 4 regional threat levels with animal-only starter bandits and motorized heavy firearms at the Capital/Military Camp", () => {
+    expect(getMapZoneLevel(SETTLEMENTS.dust_creek.coordinates)).toBe(1);
+    expect(getMapZoneLevel(SETTLEMENTS.leadville_shaft.coordinates)).toBe(2);
+    expect(getMapZoneLevel(SETTLEMENTS.saint_louis.coordinates)).toBe(3);
+    expect(getMapZoneLevel(SETTLEMENTS.new_chicago.coordinates)).toBe(4);
+
+    // Verify Military Compound secret location in Level 4 zone
+    const militaryCamp = SECRET_LOCATIONS.find((s) => s.id === "military_compound");
+    expect(militaryCamp).toBeDefined();
+    expect(getMapZoneLevel({ x: militaryCamp!.x, y: militaryCamp!.y })).toBe(4);
+
+    // Starter zone (Level 1) roving raiders use pack animals (<= 6 km/h)
+    const state = createInitialGameState();
+    const starterRaiders = (state.rovingEntities ?? []).filter((e) => e.type === "raider" && e.x < 390);
+    expect(starterRaiders.length).toBeGreaterThan(0);
+    for (const raider of starterRaiders) {
+      expect(raider.speedKmh).toBeLessThanOrEqual(6);
+      expect(raider.transportLabel).toMatch(/Burro|Mula/i);
+    }
+
+    // Capital / Military Camp (Level 4) roving raiders use V8 trucks/cars (>= 15 km/h)
+    const capitalRaiders = (state.rovingEntities ?? []).filter((e) => e.type === "raider" && e.x >= 810);
+    expect(capitalRaiders.length).toBeGreaterThan(0);
+    for (const raider of capitalRaiders) {
+      expect(raider.speedKmh).toBeGreaterThanOrEqual(14);
+      expect(raider.transportLabel).toMatch(/Caminhão|Carro|V8/i);
+    }
+
+    // Level 1 encounter vs Level 4 encounter scaling
+    const starterState = createInitialGameState();
+    starterState.currentSettlement = null;
+    starterState.exploration = {
+      x: 180,
+      y: 260,
+      heading: 90,
+      distanceTravelledKm: 5,
+      terrain: "scorched_flats",
+      isMoving: false,
+      isPaused: true,
+    };
+    const lvl1Encounter = generateRoadEncounter(starterState, ROUTES[0]);
+    expect(lvl1Encounter.enemySpeedKmh).toBeLessThanOrEqual(6);
+    expect(lvl1Encounter.enemies.every((e) => ["derringer_22", "varmint_rifle_22", "rusty_machete"].includes(e.weapon))).toBe(true);
+
+    const capitalState = createInitialGameState();
+    capitalState.currentSettlement = null;
+    capitalState.exploration = {
+      x: 895,
+      y: 385,
+      heading: 90,
+      distanceTravelledKm: 50,
+      terrain: "scorched_flats",
+      isMoving: false,
+      isPaused: true,
+    };
+    const lvl4Encounter = generateRoadEncounter(capitalState, ROUTES[ROUTES.length - 1]);
+    expect(lvl4Encounter.enemySpeedKmh).toBeGreaterThanOrEqual(14);
+    expect(lvl4Encounter.enemies.length).toBeGreaterThan(lvl1Encounter.enemies.length);
+    expect(lvl4Encounter.enemies.some((e) => ["carbine_556", "sniper_rifle_762"].includes(e.weapon))).toBe(true);
   });
 });
 

@@ -16,6 +16,57 @@ import {
 } from "./types";
 import { ITEMS } from "./worldData";
 
+export function getMapZoneLevel(position: { x: number; y: number }): 1 | 2 | 3 | 4 {
+  if (position.x < 390) return 1;
+  if (position.x < 640) return 2;
+  if (position.x < 810) return 3;
+  return 4;
+}
+
+export function getMapZoneInfo(position: { x: number; y: number }): {
+  level: 1 | 2 | 3 | 4;
+  namePt: string;
+  transportDescPt: string;
+  weaponsDescPt: string;
+  badgeColor: string;
+} {
+  const level = getMapZoneLevel(position);
+  if (level === 1) {
+    return {
+      level: 1,
+      namePt: "Nível 1 · Fronteira Inicial",
+      transportDescPt: "Apenas Animais (Burros & Mulas)",
+      weaponsDescPt: "Facões & Garruchas .22",
+      badgeColor: "#22c55e",
+    };
+  }
+  if (level === 2) {
+    return {
+      level: 2,
+      namePt: "Nível 2 · Cânions & Minas",
+      transportDescPt: "Cavalos & Carroças Leves",
+      weaponsDescPt: "Carabinas .38 & Escopetas",
+      badgeColor: "#eab308",
+    };
+  }
+  if (level === 3) {
+    return {
+      level: 3,
+      namePt: "Nível 3 · Rodovias do Leste",
+      transportDescPt: "Carros de Assalto V8",
+      weaponsDescPt: "Colt .45, Escopeta Pump & Rifle .308",
+      badgeColor: "#f97316",
+    };
+  }
+  return {
+    level: 4,
+    namePt: "Nível 4 · Capital & Base Militar",
+    transportDescPt: "Carros Blindados & Caminhões V8",
+    weaponsDescPt: "Fuzis 5.56, Sniper 7.62 & submetralhadoras",
+    badgeColor: "#ef4444",
+  };
+}
+
 export function generateRoadEncounter(
   state: GameState,
   route: RouteEdge
@@ -101,15 +152,19 @@ export function generateRoadEncounter(
     };
   }
 
-  const danger = route.dangerLevel;
+  // When the player is actively traveling in the open world, determine threat level by regional map zone
+  const danger =
+    !state.currentSettlement && state.exploration
+      ? getMapZoneLevel(state.exploration)
+      : route.dangerLevel;
 
   if (danger <= 1) {
     return {
       id: `enc_${Date.now()}`,
       title: "Desperate Scrubland Drifters",
-      enemyGroupName: "Dust Creek Scavengers",
+      enemyGroupName: "Dust Creek Scavengers (Nível 1 · Animais)",
       description:
-        "Three sun-blistered scavengers step out from behind a rusted billboard, demanding water and coin at gunpoint.",
+        "Três saqueadores fracos da fronteira inicial, viajando com burros e mulas de carga, saem detrás das dunas exigindo água e moedas com armas leves.",
       isBountyTarget: false,
       enemySpeedKmh: 5.2,
       tollDemandCash: 85,
@@ -165,11 +220,11 @@ export function generateRoadEncounter(
     return {
       id: `enc_${Date.now()}`,
       title: "Canyon Bushwhackers",
-      enemyGroupName: "Red Rock Outlaws",
+      enemyGroupName: "Red Rock Outlaws (Nível 2 · Cavalos)",
       description:
-        "Lever-action repeaters glint from the canyon boulders ahead. A three-man bushwhacker crew is eyeing your pack animals and cargo.",
+        "Foras-da-lei montados a cavalo cercam o desfiladeiro com carabinas de repetição .38 e escopetas de cano duplo.",
       isBountyTarget: false,
-      enemySpeedKmh: 7.4,
+      enemySpeedKmh: 7.6,
       tollDemandCash: 165,
       intimidateThreshold: 15,
       enemies: [
@@ -224,11 +279,11 @@ export function generateRoadEncounter(
     return {
       id: `enc_${Date.now()}`,
       title: "Highway Raider Syndicate",
-      enemyGroupName: "Asphalt Jackals",
+      enemyGroupName: "Asphalt Jackals (Nível 3 · Carros V8)",
       description:
-        "Well-armed highway raiders in welded scrap armor block the road, hunting high-value fuel, leather, and city merchandise.",
+        "Piratas motorizados em carros V8 blindados com chapas de aço bloqueiam a rodovia caçando combustível e mercadorias.",
       isBountyTarget: false,
-      enemySpeedKmh: 11.5,
+      enemySpeedKmh: 12.2,
       tollDemandCash: 260,
       intimidateThreshold: 18,
       enemies: [
@@ -293,56 +348,67 @@ export function generateRoadEncounter(
   return {
     id: `enc_${Date.now()}`,
     title: "Viaduct Iron Syndicate Ambush",
-    enemyGroupName: "Iron Rail Enforcers",
+    enemyGroupName: "Esquadrão da Capital & Base Militar (Nível 4 · Carros & Caminhões V8)",
     description:
-      "Elite metropolitan syndicate gunmen armed with M3 Grease Guns, 5.56 Carbines, and 7.62mm Sniper Rifles have barricaded the highway!",
+      "Forças de elite fortemente armadas em carros de assalto e caminhões blindados V8 cercaram a rota com Fuzis 5.56, Rifles Sniper 7.62mm e Submetralhadoras 9mm!",
     isBountyTarget: false,
-    enemySpeedKmh: 14.5,
-    tollDemandCash: 360,
+    enemySpeedKmh: 15.2,
+    tollDemandCash: 380,
     intimidateThreshold: 22,
     enemies: [
       {
         name: "Commander Vane",
         role: "Syndicate Tactician",
-        hp: 88,
-        maxHp: 88,
-        ap: 7,
-        maxAp: 7,
+        hp: 95,
+        maxHp: 95,
+        ap: 8,
+        maxAp: 8,
         weapon: "carbine_556",
-        accuracy: 78,
+        accuracy: 80,
         morale: 95,
       },
       {
         name: "Chopper Malone",
         role: "SMG Gunner",
-        hp: 78,
-        maxHp: 78,
+        hp: 84,
+        maxHp: 84,
         ap: 7,
         maxAp: 7,
         weapon: "grease_smg_9mm",
-        accuracy: 74,
-        morale: 88,
+        accuracy: 76,
+        morale: 90,
       },
       {
         name: "Deadeye Cross",
         role: "Vault Sharpshooter",
-        hp: 68,
-        maxHp: 68,
-        ap: 6,
-        maxAp: 6,
+        hp: 76,
+        maxHp: 76,
+        ap: 7,
+        maxAp: 7,
         weapon: "sniper_rifle_762",
-        accuracy: 82,
+        accuracy: 84,
+        morale: 90,
+      },
+      {
+        name: "Sargento Krell",
+        role: "Heavy Breacher",
+        hp: 88,
+        maxHp: 88,
+        ap: 7,
+        maxAp: 7,
+        weapon: "pump_shotgun_12g",
+        accuracy: 78,
         morale: 88,
       },
     ],
     lootReward: {
-      cash: 390,
+      cash: 420,
       items: {
-        ammo_556: 10,
-        ammo_9mm: 12,
-        ammo_762: 6,
-        gasoline: 4,
-        antibiotics: 1,
+        ammo_556: 12,
+        ammo_9mm: 14,
+        ammo_762: 8,
+        gasoline: 5,
+        antibiotics: 2,
       },
     },
   };

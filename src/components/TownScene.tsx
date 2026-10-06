@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import { TownHubPanel, type TownHubPanelProps } from "./TownHubPanel";
 import { NpcPortraitSvg } from "@/assets/caravaneerSprites";
 import { getMarketPrices } from "@/domain/economyEngine";
+import { getMapZoneInfo } from "@/domain/combatEngine";
 import type { NpcProfile, SettlementTier } from "@/domain/types";
 import { SETTLEMENTS } from "@/domain/worldData";
 
@@ -12,15 +13,15 @@ export interface TownSceneProps extends TownHubPanelProps {
   onLeaveTown?: () => void;
 }
 const places: { id: Place; name: string; sign: string; x: number; y: number; color: string }[] = [
-  { id: "general_trader", name: "General Goods & Arms", sign: "TRADE", x: 8, y: 12, color: "#927044" },
-  { id: "transport_master", name: "Transport & Fuel", sign: "DEPOT", x: 69, y: 12, color: "#616f65" },
-  { id: "sheriff", name: "Sheriff's Office", sign: "LAW", x: 8, y: 60, color: "#716755" },
-  { id: "saloon_barkeep", name: "Saloon & Escorts", sign: "SALOON", x: 69, y: 60, color: "#8b5145" },
-  { id: "clinic", name: "Clinic", sign: "+ CLINIC", x: 39, y: 12, color: "#607f75" },
-  { id: "well", name: "Town Well", sign: "WATER", x: 39, y: 60, color: "#416e78" },
+  { id: "general_trader", name: "General Goods & Arms", sign: "TRADE", x: 8, y: 10, color: "#927044" },
+  { id: "clinic", name: "Clinic", sign: "+ CLINIC", x: 39, y: 10, color: "#607f75" },
+  { id: "transport_master", name: "Transport & Fuel", sign: "DEPOT", x: 69, y: 10, color: "#616f65" },
+  { id: "sheriff", name: "Sheriff's Office", sign: "LAW", x: 8, y: 58, color: "#716755" },
+  { id: "well", name: "Town Well", sign: "WATER", x: 39, y: 58, color: "#416e78" },
+  { id: "saloon_barkeep", name: "Saloon & Escorts", sign: "SALOON", x: 69, y: 58, color: "#8b5145" },
   { id: "gate", name: "City Gate", sign: "GATE", x: 39, y: 83, color: "#5d5648" },
 ];
-const actionClass = "rounded-lg border border-amber-700 bg-amber-950 px-4 py-3 text-sm font-bold text-amber-100 hover:bg-amber-900 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-200 disabled:opacity-40";
+const actionClass = "rounded border border-amber-700 bg-amber-950 px-3 py-1.5 text-xs font-bold text-amber-100 hover:bg-amber-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-200 disabled:opacity-40 cursor-pointer";
 
 export function TownScene(props: TownSceneProps) {
   return <TownVisit key={props.settlementId + ":" + props.state.currentSettlement} {...props} />;
@@ -29,6 +30,7 @@ export function TownScene(props: TownSceneProps) {
 function TownVisit(props: TownSceneProps) {
   const { state, settlementId, onLeaveTown } = props;
   const settlement = SETTLEMENTS[settlementId];
+  const zoneInfo = getMapZoneInfo(settlement.coordinates);
   const [place, setPlace] = useState<Place | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const mapButtons = useRef<Partial<Record<Place, HTMLButtonElement | null>>>({});
@@ -53,91 +55,120 @@ function TownVisit(props: TownSceneProps) {
     <p className="mt-2">{state.combatState ? "Finish the active combat before using town services." : "Arrive at " + settlement.name + " to visit its shops and residents."}</p>
   </section>;
 
-  return <section className="town-scene space-y-4 text-stone-100" aria-label={settlement.name + " town scene"}>
+  return <section className="town-scene flex h-full w-full min-h-0 flex-col gap-1.5 overflow-hidden text-stone-100" aria-label={settlement.name + " town scene"}>
     <style>{`
-      .town-scene .scene-entry { animation: merchant-room-entry 220ms ease-out; }
-      .town-scene .town-building { transition: transform 150ms ease, filter 150ms ease; }
-      .town-scene .town-building:hover { transform: translateY(-3px); filter: brightness(1.15); }
+      .town-scene .scene-entry { animation: merchant-room-entry 180ms ease-out; }
+      .town-scene .town-building { transition: transform 140ms ease, filter 140ms ease; }
+      .town-scene .town-building:hover { transform: translateY(-2px); filter: brightness(1.14); }
       .town-scene .town-building:active { transform: translateY(1px); }
-      @keyframes merchant-room-entry { from { opacity: .4; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes merchant-room-entry { from { opacity: .5; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
       @media (prefers-reduced-motion: reduce) {
         .town-scene .scene-entry { animation: none; }
         .town-scene .town-building { transition: none; }
         .town-scene .town-building:hover, .town-scene .town-building:active { transform: none; }
       }
     `}</style>
-    <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-900 bg-stone-950 p-4">
-      <div>
-        <p className="text-xs uppercase tracking-widest text-amber-400">{major ? "Walled metropolis · paved streets" : "Frontier settlement · dusty trails"}</p>
-        <h2 ref={heading} tabIndex={-1} className="text-xl font-bold text-amber-100">{settlement.name}{selected ? " / " + selected.name : ""}</h2>
-        <p className="text-sm text-stone-400">{settlement.subtitle}</p>
+    <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded border border-amber-900/80 bg-stone-950 px-3 py-1.5">
+      <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 ref={heading} tabIndex={-1} className="text-base font-bold text-amber-100 leading-tight">
+              {settlement.name}{selected ? " / " + selected.name : ""}
+            </h2>
+            <span className="rounded border border-amber-800/60 bg-amber-950/60 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+              {major ? "Metropolis" : "Frontier"}
+            </span>
+            <span
+              className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
+              style={{
+                backgroundColor: `${zoneInfo.badgeColor}22`,
+                color: zoneInfo.badgeColor,
+                border: `1px solid ${zoneInfo.badgeColor}66`,
+              }}
+            >
+              Zona Nv.{zoneInfo.level} · {zoneInfo.transportDescPt}
+            </span>
+          </div>
+          <p className="text-[11px] text-stone-400 truncate">{settlement.subtitle}</p>
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="font-mono text-amber-200">Cash: ${state.cash} · HP: {state.hp}</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-xs font-bold text-amber-200">Cash: ${state.cash} · HP: {state.hp}</span>
+        {!place && onLeaveTown && (
+          <button type="button" className={actionClass} onClick={onLeaveTown}>
+            Sair para Estrada →
+          </button>
+        )}
         {place && <button type="button" className={actionClass} onClick={() => navigate(null)}>← Back to town</button>}
       </div>
     </header>
-    {!place ? <div className="scene-entry rounded-xl border border-amber-900 bg-stone-950 p-3">
-      <p className="mb-3 text-sm text-stone-300">Choose a building to enter. Use Tab and Enter to visit any location. On small screens, scroll the map sideways.</p>
-      <div className="overflow-x-auto rounded-lg" tabIndex={0} aria-label="Scrollable town map">
-        <div className="relative min-w-[640px]" style={{ aspectRatio: "8 / 5", background: major ? "#424b46" : "#9a8055" }}>
-          <svg viewBox="0 0 800 500" className="absolute inset-0 h-full w-full" aria-hidden="true">
-            <rect x="12" y="12" width="776" height="476" rx="12" fill="none" stroke={major ? "#89958f" : "#584632"} strokeWidth={major ? 18 : 7} />
-            <path d="M30 244H770 M400 28V480" stroke={major ? "#737b76" : "#c1a274"} strokeWidth={major ? 80 : 65} />
-            <path d="M30 244H770 M400 28V480" stroke={major ? "#a5aaa1" : "#d5b880"} strokeWidth="2" strokeDasharray={major ? "18 12" : "3 14"} />
-            {[45, 185, 615, 755].map((x) => <g key={x}>
-              <circle cx={x} cy="218" r={major ? 13 : 10} fill={major ? "#3e604b" : "#6a723e"} />
-              <rect x={x - 3} y="237" width="6" height="25" fill="#4d4235" />
-              {major && <circle cx={x} cy="236" r="4" fill="#e4c789" />}
-            </g>)}
-            <text x="48" y="287" fill="#292720" fontSize="14" letterSpacing="4">MAIN STREET</text>
-            <path d="M736 410v-35m-8 12 8-12 8 12" stroke="#ede0bd" strokeWidth="3" fill="none" />
-            <text x="730" y="430" fill="#ede0bd" fontSize="16">N</text>
-          </svg>
-          {places.map((entry) => <button key={entry.id} type="button"
-            ref={(node) => { mapButtons.current[entry.id] = node; }}
-            onClick={() => navigate(entry.id)} aria-label={"Visit " + entry.name}
-            className="town-building absolute flex flex-col items-center justify-center rounded-md border-2 border-stone-950 text-white shadow-xl focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-yellow-200"
-            style={{ left: entry.x + "%", top: entry.y + "%", width: "23%", height: entry.id === "gate" ? "13%" : "23%", background: entry.color }}>
-            {entry.id !== "well" && entry.id !== "gate" && <svg viewBox="0 0 180 85" className="pointer-events-none absolute inset-0 h-full w-full opacity-40" aria-hidden="true">
-              <path d="M8 8H172V77H8Z" fill="none" stroke={major ? "#c5d3cd" : "#e0b77d"} strokeWidth="7" />
-              <path d="M8 8 90 42 172 8M8 77 90 42 172 77M90 8V77" fill="none" stroke="#241f17" strokeWidth="3" />
-              <rect x="137" y="17" width="15" height="20" fill="#211f1c" />
-            </svg>}
-            {entry.id === "well" ? <svg viewBox="0 0 100 45" className="h-9 w-20" aria-hidden="true"><ellipse cx="50" cy="23" rx="30" ry="18" fill="#9b9e92" /><ellipse cx="50" cy="23" rx="20" ry="11" fill="#203e48" /><path d="M20 30V3H80V30" fill="none" stroke="#c3a26d" strokeWidth="5" /></svg> :
-              <span aria-hidden="true" className="mb-1 w-4/5 border-y-4 border-black/25 py-1 text-xs font-bold tracking-widest">{entry.sign}</span>}
-            <span className="relative rounded bg-stone-950/70 px-1 text-xs font-bold sm:text-sm">{entry.name}</span>
-            {entry.id !== "well" && entry.id !== "gate" && <span aria-hidden="true" className="mt-1 h-3 w-5 border border-amber-200/50 bg-stone-950/70" />}
-          </button>)}
-        </div>
+
+    {!place ? <div className="scene-entry flex flex-1 min-h-0 flex-col gap-1.5 rounded border border-amber-900/80 bg-stone-950 p-2 overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between gap-2 text-xs text-stone-300 px-1">
+        <span>Selecione um edifício para entrar (Comércio, Clínica, Depósito, Xerife, Poço, Saloon ou Portão).</span>
+        <span className="hidden md:inline text-[11px] text-stone-400 truncate max-w-md">{settlement.lore}</span>
       </div>
-      <p className="mt-3 text-sm text-stone-400">{settlement.lore}</p>
-    </div> : <div key={place} className="scene-entry space-y-4">
-      <InteriorScene place={place} tier={settlement.tier} />
-      {isNpc ? <TownHubPanel key={place} {...props} initialNpc={place} hideNavigation /> :
-        <div className="rounded-xl border border-amber-900 bg-stone-950 p-5">
-          {place === "clinic" && <>
-            <h3 className="text-lg font-bold text-amber-100">Caravan clinic</h3>
-            <p className="my-3 text-sm text-stone-300">The saloon clinic's existing rest service restores your HP and every hired escort's HP for $20.</p>
-            <button type="button" className={actionClass} disabled={state.cash < 20} onClick={props.onRestAtSaloon}>Rest & heal squad — $20</button>
-            {state.cash < 20 && <p className="mt-2 text-sm text-amber-300">You need $20 for treatment.</p>}
-          </>}
-          {place === "well" && <>
-            <h3 className="text-lg font-bold text-amber-100">Water supply station</h3>
-            <p className="my-3 text-sm text-stone-300">Water comes from local market stock. Stock: {waterStock} L · ${waterPrice}/L · Carried: {state.inventory.water ?? 0} L.</p>
-            <button type="button" className={actionClass} disabled={waterStock < 1 || state.cash < waterPrice} onClick={() => props.onBuyItem("water", 1)}>Buy 1 L — ${waterPrice}</button>
-            {(waterStock < 1 || state.cash < waterPrice) && <p className="mt-2 text-sm text-amber-300">{waterStock < 1 ? "The town has no water left to sell." : "Insufficient cash for water."}</p>}
-          </>}
-          {place === "gate" && <>
-            <h3 className="text-lg font-bold text-amber-100">Caravan departure gate</h3>
-            <p className="my-3 text-sm text-stone-300">Leave the town view to plan your journey. Choose routes and compass headings in the overworld travel controls.</p>
-            <button type="button" className={actionClass} disabled={!onLeaveTown} onClick={onLeaveTown}>Leave town</button>
-            {!onLeaveTown && <p className="mt-2 text-sm text-amber-300">Departure is controlled by the overworld. Close the town view using its travel controls.</p>}
-          </>}
-        </div>}
-      <p role="status" aria-live="polite" className="rounded-lg border border-stone-800 bg-stone-950 p-3 text-sm text-stone-300">
+      <div className="relative flex-1 min-h-0 w-full overflow-hidden rounded border border-stone-800" tabIndex={0} aria-label="Scrollable town map" style={{ background: major ? "#424b46" : "#9a8055" }}>
+        <svg viewBox="0 0 800 500" preserveAspectRatio="none" className="absolute inset-0 h-full w-full block" aria-hidden="true">
+          <rect x="12" y="12" width="776" height="476" rx="12" fill="none" stroke={major ? "#89958f" : "#584632"} strokeWidth={major ? 14 : 6} />
+          <path d="M30 244H770 M400 28V480" stroke={major ? "#737b76" : "#c1a274"} strokeWidth={major ? 74 : 60} />
+          <path d="M30 244H770 M400 28V480" stroke={major ? "#a5aaa1" : "#d5b880"} strokeWidth="2" strokeDasharray={major ? "18 12" : "3 14"} />
+          {[45, 185, 615, 755].map((x) => <g key={x}>
+            <circle cx={x} cy="218" r={major ? 12 : 9} fill={major ? "#3e604b" : "#6a723e"} />
+            <rect x={x - 3} y="235" width="6" height="22" fill="#4d4235" />
+            {major && <circle cx={x} cy="234" r="4" fill="#e4c789" />}
+          </g>)}
+          <text x="48" y="282" fill="#292720" fontSize="13" fontWeight="700" letterSpacing="4">MAIN STREET</text>
+          <path d="M736 410v-35m-8 12 8-12 8 12" stroke="#ede0bd" strokeWidth="3" fill="none" />
+          <text x="730" y="430" fill="#ede0bd" fontSize="15" fontWeight="700">N</text>
+        </svg>
+        {places.map((entry) => <button key={entry.id} type="button"
+          ref={(node) => { mapButtons.current[entry.id] = node; }}
+          onClick={() => navigate(entry.id)} aria-label={"Visit " + entry.name}
+          className="town-building absolute flex flex-col items-center justify-center rounded-md border-2 border-stone-950 text-white shadow-xl focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-yellow-200 cursor-pointer"
+          style={{ left: entry.x + "%", top: entry.y + "%", width: "23%", height: entry.id === "gate" ? "13%" : "23%", background: entry.color }}>
+          {entry.id !== "well" && entry.id !== "gate" && <svg viewBox="0 0 180 85" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full opacity-40" aria-hidden="true">
+            <path d="M8 8H172V77H8Z" fill="none" stroke={major ? "#c5d3cd" : "#e0b77d"} strokeWidth="7" />
+            <path d="M8 8 90 42 172 8M8 77 90 42 172 77M90 8V77" fill="none" stroke="#241f17" strokeWidth="3" />
+            <rect x="137" y="17" width="15" height="20" fill="#211f1c" />
+          </svg>}
+          {entry.id === "well" ? <svg viewBox="0 0 100 45" className="h-7 w-16" aria-hidden="true"><ellipse cx="50" cy="23" rx="30" ry="18" fill="#9b9e92" /><ellipse cx="50" cy="23" rx="20" ry="11" fill="#203e48" /><path d="M20 30V3H80V30" fill="none" stroke="#c3a26d" strokeWidth="5" /></svg> :
+            <span aria-hidden="true" className="mb-0.5 w-4/5 border-y-2 border-black/25 py-0.5 text-[10px] font-bold tracking-widest leading-tight">{entry.sign}</span>}
+          <span className="relative rounded bg-stone-950/75 px-1.5 py-0.5 text-[11px] font-bold leading-tight">{entry.name}</span>
+          {entry.id !== "well" && entry.id !== "gate" && <span aria-hidden="true" className="mt-0.5 h-2.5 w-4 border border-amber-200/50 bg-stone-950/70" />}
+        </button>)}
+      </div>
+      <p role="status" aria-live="polite" className="shrink-0 truncate rounded border border-stone-800 bg-stone-900/90 px-2.5 py-1 text-[11px] text-stone-300">
         Latest journal entry: {state.journalLogs[0] ?? "No activity recorded yet."}
       </p>
+    </div> : <div key={place} className="scene-entry flex flex-1 min-h-0 flex-col gap-1.5 overflow-hidden">
+      {!isNpc && <InteriorScene place={place} tier={settlement.tier} />}
+      {isNpc ? <TownHubPanel key={place} {...props} initialNpc={place} hideNavigation /> :
+        <div className="flex-1 min-h-0 rounded-xl border border-amber-900 bg-stone-950 p-4 flex flex-col justify-between overflow-hidden">
+          <div>
+            {place === "clinic" && <>
+              <h3 className="text-base font-bold text-amber-100">Caravan clinic</h3>
+              <p className="my-2 text-xs text-stone-300">The saloon clinic&apos;s existing rest service restores your HP and every hired escort&apos;s HP for $20.</p>
+              <button type="button" className={actionClass} disabled={state.cash < 20} onClick={props.onRestAtSaloon}>Rest & heal squad — $20</button>
+              {state.cash < 20 && <p className="mt-2 text-xs text-amber-300">You need $20 for treatment.</p>}
+            </>}
+            {place === "well" && <>
+              <h3 className="text-base font-bold text-amber-100">Water supply station</h3>
+              <p className="my-2 text-xs text-stone-300">Water comes from local market stock. Stock: {waterStock} L · ${waterPrice}/L · Carried: {state.inventory.water ?? 0} L.</p>
+              <button type="button" className={actionClass} disabled={waterStock < 1 || state.cash < waterPrice} onClick={() => props.onBuyItem("water", 1)}>Buy 1 L — ${waterPrice}</button>
+              {(waterStock < 1 || state.cash < waterPrice) && <p className="mt-2 text-xs text-amber-300">{waterStock < 1 ? "The town has no water left to sell." : "Insufficient cash for water."}</p>}
+            </>}
+            {place === "gate" && <>
+              <h3 className="text-base font-bold text-amber-100">Caravan departure gate</h3>
+              <p className="my-2 text-xs text-stone-300">Leave the town view to plan your journey. Choose routes and compass headings in the overworld travel controls.</p>
+              <button type="button" className={actionClass} disabled={!onLeaveTown} onClick={onLeaveTown}>Leave town</button>
+              {!onLeaveTown && <p className="mt-2 text-xs text-amber-300">Departure is controlled by the overworld. Close the town view using its travel controls.</p>}
+            </>}
+          </div>
+          <p role="status" aria-live="polite" className="shrink-0 truncate rounded border border-stone-800 bg-stone-900 p-2 text-xs text-stone-300">
+            Latest journal entry: {state.journalLogs[0] ?? "No activity recorded yet."}
+          </p>
+        </div>}
     </div>}
   </section>;
 }
@@ -146,8 +177,8 @@ function TownVisit(props: TownSceneProps) {
 function InteriorScene({ place, tier }: { place: Place; tier: SettlementTier }) {
   const major = tier === "major_city";
   const role = place === "general_trader" || place === "transport_master" || place === "sheriff" || place === "saloon_barkeep" ? place : null;
-  return <div className="relative overflow-hidden rounded-xl border border-amber-800 bg-stone-950">
-    <svg viewBox="0 0 800 280" className="w-full" role="img" aria-label={(places.find((entry) => entry.id === place)?.name ?? "") + (major ? " city interior" : " frontier interior")}>
+  return <div className="relative h-36 shrink-0 overflow-hidden rounded-xl border border-amber-800 bg-stone-950">
+    <svg viewBox="0 0 800 280" preserveAspectRatio="xMidYMid slice" className="h-full w-full" role="img" aria-label={(places.find((entry) => entry.id === place)?.name ?? "") + (major ? " city interior" : " frontier interior")}>
       <rect width="800" height="280" fill={major ? "#474c47" : "#55412d"} />
       {Array.from({ length: 15 }, (_, i) => <path key={i} d={"M0 " + i * 20 + "H800"} stroke={major ? "#61675e" : "#725b3e"} />)}
       <path d="M18 270V18H782V270" fill="none" stroke={major ? "#89948c" : "#a27d4e"} strokeWidth="20" />

@@ -52,20 +52,31 @@ const ENCOUNTER_TRANSLATIONS: Record<
   },
   "Ironclad Death-Squad": {
     title: "Esquadrão da Morte Blindado",
-    group: "Reavers do Deserto",
+    group: "Reavers do Deserto (Nível 4)",
     desc: "Um comboio pesado de mercenários renegados e atiradores de elite cercou o perímetro da sua caravana com intenção letal.",
+  },
+  "Viaduct Iron Syndicate Ambush": {
+    title: "Emboscada Blindada da Capital & Base Militar",
+    group: "Esquadrão Militar & Sindicato de Ferro (Nível 4)",
+    desc: "Inimigos fortemente armados em carros de assalto e caminhões blindados V8 bloquearam a rota com Fuzis 5.56, Rifles Sniper 7.62mm e Submetralhadoras 9mm!",
   },
 };
 
 const ROLE_TRANSLATIONS: Record<string, string> = {
-  "Drifter Pistolero": "Pistoleiro Errante",
-  "Varmint Shooter": "Atirador de Carabina",
-  "Trail Cutthroat": "Degolador de Trilha",
-  "Canyon Marksman": "Franco-Atirador do Cânion",
-  Enforcer: "Brucutu de Escopeta",
-  "Outrider Duelist": "Duelista Montado",
-  "Gunslinger Boss": "Chefe Pistoleiro",
-  "Trench Breacher": "Assaltante de Trincheira",
+  "Drifter Pistolero": "Pistoleiro Errante (Nv.1)",
+  "Varmint Shooter": "Atirador .22 (Nv.1)",
+  "Trail Cutthroat": "Saqueador de Facão (Nv.1)",
+  "Canyon Marksman": "Franco-Atirador do Cânion (Nv.2)",
+  Enforcer: "Brucutu de Escopeta (Nv.2)",
+  "Outrider Duelist": "Duelista Montado (Nv.2)",
+  "Gunslinger Boss": "Chefe Pistoleiro (Nv.3)",
+  "Trench Breacher": "Assaltante de Trincheira (Nv.3)",
+  Sharpshooter: "Atirador de Elite .308 (Nv.3)",
+  "Maul Enforcer": "Demolidor de Marreta (Nv.3)",
+  "Syndicate Tactician": "Comandante Tático 5.56 (Nv.4)",
+  "SMG Gunner": "Atirador de Submetralhadora (Nv.4)",
+  "Vault Sharpshooter": "Sniper Militar 7.62 (Nv.4)",
+  "Heavy Breacher": "Assaltante Blindado (Nv.4)",
   "Rifleman Escort": "Escolta de Fuzil",
   "Outlaw Leader": "Líder Fora-da-Lei",
   "Gang Henchman": "Capanga de Gangue",
@@ -77,21 +88,27 @@ function getEnemyTransportVisual(speedKmh: number): {
   transportId: TransportId;
   label: string;
 } {
-  if (speedKmh >= 11) {
+  if (speedKmh >= 13.8) {
+    return {
+      transportId: "armored_pickup",
+      label: "Carros & Caminhões Blindados V8 (Nv. 4)",
+    };
+  }
+  if (speedKmh >= 10.5) {
     return {
       transportId: "desert_dune_buggy",
-      label: "Carros de Assalto V8",
+      label: "Carros de Assalto V8 (Nv. 3)",
     };
   }
   if (speedKmh >= 7) {
     return {
       transportId: "heavy_wagon_horse",
-      label: "Cavalos de Perseguição",
+      label: "Cavalos de Sela & Carroça (Nv. 2)",
     };
   }
   return {
     transportId: "pack_mule_team",
-    label: "A Pé & Mulas de Trilha",
+    label: "Animais de Carga · Burros & Mulas (Nv. 1)",
   };
 }
 
@@ -172,13 +189,13 @@ export const PreCombatEncounterModal: React.FC<
       role="dialog"
       aria-modal="true"
       aria-labelledby="encounter-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-2 select-none overflow-hidden"
     >
-      <div className="w-full max-w-3xl caravan-bezel border-2 border-[#5c6e52] bg-[#141b12] text-[#ebdcb2] shadow-2xl overflow-hidden">
+      <div className="w-full max-w-3xl max-h-[96vh] flex flex-col caravan-bezel border-2 border-[#5c6e52] bg-[#141b12] text-[#ebdcb2] shadow-2xl overflow-hidden">
         {/* TOP MILITARY STENCIL HEADER BAR */}
-        <div className="bg-[#172016] border-b-2 border-[#3c4a35] px-4 py-2.5 flex items-center justify-between gap-3">
+        <div className="bg-[#172016] border-b-2 border-[#3c4a35] px-3.5 py-2 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center border-2 border-red-700/80 bg-[#2a1212] text-red-400 shadow-inner">
+            <div className="flex h-9 w-9 items-center justify-center border-2 border-red-700/80 bg-[#2a1212] text-red-400 shadow-inner">
               <ShieldAlert className="h-5 w-5" />
             </div>
             <div>
@@ -189,7 +206,7 @@ export const PreCombatEncounterModal: React.FC<
               </div>
               <h2
                 id="encounter-title"
-                className="text-lg font-black uppercase tracking-wide text-[#fef08a] font-mono"
+                className="text-base font-black uppercase tracking-wide text-[#fef08a] font-mono"
               >
                 {displayTitle}
               </h2>
@@ -207,7 +224,7 @@ export const PreCombatEncounterModal: React.FC<
           )}
         </div>
 
-        <div className="p-4 space-y-3">
+        <div className="p-3 space-y-2.5 flex-1 min-h-0 overflow-y-auto">
           {/* SIDE-BY-SIDE CARAVAN CONFRONTATION VISUAL BANNER */}
           <div className="grid grid-cols-1 sm:grid-cols-11 gap-2 items-center caravan-gauge p-2.5 border border-[#3c4a35]">
             {/* YOUR CARAVAN */}
