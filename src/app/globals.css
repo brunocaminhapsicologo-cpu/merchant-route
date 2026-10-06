@@ -2,10 +2,161 @@
 
 :root {
   color-scheme: dark;
+  --caravan-bg: #121512;
+  --caravan-panel: #1a1f18;
+  --caravan-panel-dark: #151814;
+  --caravan-panel-light: #232a20;
+  --caravan-border: #3d4738;
+  --caravan-border-light: #52604b;
+  --caravan-border-dark: #252b22;
+  --caravan-text: #e2d7ba;
+  --caravan-text-muted: #8d9887;
+  --caravan-gold: #fef08a;
+  --caravan-accent: #8ba37c;
 }
 
 body {
-  background-color: #0f0c09;
-  color: #f5f5f4;
+  background-color: var(--caravan-bg);
+  color: var(--caravan-text);
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  max-height: 100vh;
+}
+
+/* CARAVANEER 2 TACTICAL BEVELED PANELS */
+.game-panel {
+  border: 2px solid var(--caravan-border);
+  border-radius: 6px;
+  background: var(--caravan-panel);
+  box-shadow: inset 1px 1px 0 rgba(104, 125, 96, 0.25), inset -1px -1px 0 rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.caravan-frame {
+  border: 2px solid var(--caravan-border);
+  border-radius: 6px;
+  background: var(--caravan-panel);
+  box-shadow: inset 1px 1px 0 rgba(104, 125, 96, 0.2), inset -1px -1px 0 rgba(0, 0, 0, 0.6);
+}
+
+.caravan-well {
+  background: var(--caravan-panel-dark);
+  border: 1px solid var(--caravan-border-dark);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+}
+
+/* CARAVANEER 2 TACTICAL BUTTONS */
+.game-primary, .caravan-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  background: #3c4837;
+  color: #fef08a;
+  border: 1px solid #6b7f63;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 4px rgba(0, 0, 0, 0.4);
+  transition: all 0.1s ease;
+}
+
+.game-primary:hover:not(:disabled), .caravan-btn-primary:hover:not(:disabled) {
+  background: #4a5944;
+  border-color: #8da682;
+  color: #ffffff;
+}
+
+.game-primary:active:not(:disabled), .caravan-btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.game-secondary, .caravan-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  background: #20271e;
+  color: #c5b896;
+  border: 1px solid #3d4a39;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: all 0.1s ease;
+}
+
+.game-secondary:hover:not(:disabled), .caravan-btn-secondary:hover:not(:disabled) {
+  background: #2a3327;
+  border-color: #55664f;
+  color: #fef08a;
+}
+
+.game-secondary:active:not(:disabled), .caravan-btn-secondary:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.game-primary:disabled, .game-secondary:disabled, .caravan-btn-primary:disabled, .caravan-btn-secondary:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+/* CARAVANEER INPUTS & CONTROLS */
+.game-input {
+  background: #141813;
+  color: #fef08a;
+  border: 1px solid #3d4a39;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-family: ui-monospace, monospace;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.game-input:focus {
+  outline: 2px solid #8ca37b;
+  outline-offset: 1px;
+  border-color: #8ca37b;
+}
+
+button:focus-visible, input:focus-visible, select:focus-visible, [role=button]:focus-visible {
+  outline: 2px solid #a3b892;
+  outline-offset: 2px;
+}
+
+/* CUSTOM SLIM CARAVANEER SCROLLBAR FOR INTERNAL LISTS */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #141813;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #384333;
+  border-radius: 3px;
+  border: 1px solid #4d5c46;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #50614a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

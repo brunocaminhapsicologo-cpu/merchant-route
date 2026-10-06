@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   TopDownCoverSprite,
-  TopDownUnitSprite,
   WeaponSilhouette,
 } from "@/assets/caravaneerSprites";
 import {
   calculateShotPreview,
+  findCombatPath,
   getManhattanDistance,
 } from "@/domain/combatEngine";
 import {
@@ -17,6 +17,7 @@ import {
   GameState,
   WeaponId,
 } from "@/domain/types";
+import { CombatUnitLayer } from "./CombatUnitLayer";
 import { ITEMS } from "@/domain/worldData";
 import {
   Crosshair,
@@ -38,9 +39,11 @@ interface TacticalCombatModalProps {
   onToggleCrouch: () => void;
   onReloadWeapon: () => void;
   onUseFieldBandage: () => void;
+  onUseAntibiotics?: () => void;
   onSwitchCombatWeapon: (weaponId: WeaponId) => void;
   onEndPlayerUnitTurn: () => void;
   onFinishCombat: () => void;
+  onAnimationBusyChange?: (busy: boolean) => void;
 }
 
 interface PendingAttackMeta {
@@ -93,14 +96,44 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
   onToggleCrouch,
   onReloadWeapon,
   onUseFieldBandage,
+  onUseAntibiotics,
   onSwitchCombatWeapon,
   onEndPlayerUnitTurn,
   onFinishCombat,
+  onAnimationBusyChange,
 }) => {
   const [hoveredEnemyId, setHoveredEnemyId] = useState<string | null>(null);
   const [animEffect, setAnimEffect] = useState<CombatAnimationEffect | null>(
     null
   );
+  const [selectedEnemyId, setSelectedEnemyId] = useState<string | null>(null);
+  const [animationBusy, setAnimationBusy] = useState(false);
+  const animationBusyRef = useRef(false);
+  const externalBusyRef = useRef(onAnimationBusyChange);
+  externalBusyRef.current = onAnimationBusyChange;
+  const handleAnimationBusyChange = useCallback((busy: boolean) => {
+    animationBusyRef.current = busy;
+    setAnimationBusy(busy);
+    externalBusyRef.current?.(busy);
+  }, []);
+  const effectSequence = useRef(0);
+  // Accept the logistics extension without requiring its concurrent type change.
+  const terrainState = state as GameState & {
+    travelState?: { terrain?: string } | null;
+    exploration?: { terrain?: string } | null;
+  };
+  const terrain = terrainState.travelState?.terrain ?? terrainState.exploration?.terrain ?? "desert";
+  const landscape = /rock|mountain|canyon/i.test(terrain)
+    ? { base: "#9b8060", accent: "#665f50", label: "Rocky pass" }
+    : /highway|road/i.test(terrain)
+    ? { base: "#b8a17c", accent: "#747169", label: "Abandoned highway" }
+    : /scorched|flat/i.test(terrain)
+    ? { base: "#b49576", accent: "#7e634e", label: "Scorched flats" }
+    : /ruin|urban|city/i.test(terrain)
+    ? { base: "#a3987a", accent: "#676453", label: "Ruined outskirts" }
+    : /grass|plain|oasis|forest/i.test(terrain)
+    ? { base: "#aba575", accent: "#687446", label: "Dry scrubland" }
+    : { base: "#c6a76e", accent: "#ae884f", label: "Open dunes" };
   const pendingAttackRef = useRef<PendingAttackMeta | null>(null);
 
   const activeUnit: CombatUnit | undefined = combat.units.find(
@@ -136,7 +169,7 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
     }
 
     setAnimEffect({
-      id: Date.now(),
+      id: ++effectSequence.current,
       attackerX: pending.attackerX,
       attackerY: pending.attackerY,
       targetX: pending.targetX,
@@ -148,23 +181,36 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
       isRanged: pending.isRanged,
     });
 
-    const timer = window.setTimeout(() => {
-      setAnimEffect(null);
-    }, 850);
-
-    return () => window.clearTimeout(timer);
   }, [combat.units, combat.combatLog]);
 
-  const hoveredEnemy = combat.units.find((u) => u.id === hoveredEnemyId);
-  const shotPreview =
-    activeUnit && hoveredEnemy && !hoveredEnemy.isPlayerTeam
-      ? calculateShotPreview(
-          combat,
-          activeUnit,
-          hoveredEnemy,
-          combat.selectedFiringMode
-        )
-      : null;
+  // Own the expiry separately: unrelated combat updates must not cancel it.
+  useEffect(() => {
+    if (!animEffect) return;
+    const timer = window.setTimeout(() => setAnimEffect(null), 850);
+    return () => window.clearTimeout(timer);
+  }, [animEffect]);
+
+  const selectedEnemy = combat.units.find(u => u.id === selectedEnemyId && u.hp > 0 && !u.isFled && !u.isPlayerTeam);
+  const hoveredEnemy = combat.units.find(u => u.id === hoveredEnemyId && u.hp > 0 && !u.isFled && !u.isPlayerTeam) ?? selectedEnemy;
+  const shotPreview = activeUnit?.isPlayerTeam && hoveredEnemy
+    ? calculateShotPreview(combat, activeUnit, hoveredEnemy, combat.selectedFiringMode)
+    : null;
+  const selectedShotPreview = activeUnit?.isPlayerTeam && selectedEnemy
+    ? calculateShotPreview(combat, activeUnit, selectedEnemy, combat.selectedFiringMode)
+    : null;
+
+  const confirmAttack = () => {
+    if (animationBusyRef.current || combat.outcome !== "ongoing" || !activeUnit?.isPlayerTeam || !selectedEnemy) return;
+    const preview = calculateShotPreview(combat, activeUnit, selectedEnemy, combat.selectedFiringMode);
+    if (!preview.canAttack) return;
+    pendingAttackRef.current = {
+      attackerX: activeUnit.x, attackerY: activeUnit.y,
+      targetX: selectedEnemy.x, targetY: selectedEnemy.y,
+      targetId: selectedEnemy.id, prevHp: selectedEnemy.hp,
+      mode: combat.selectedFiringMode, isRanged: weaponStats?.ammoType != null,
+    };
+    onAttackTarget(selectedEnemy.id);
+  };
 
   const spareAmmoCount =
     weaponStats?.ammoType ? state.inventory[weaponStats.ammoType] ?? 0 : 0;
@@ -194,8 +240,8 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
             </div>
             <p className="text-xs text-stone-400 mt-0.5">
               Click green-outlined tiles to move (1 AP per tile, 2 AP in sand;
-              2x if legs crippled). Click a red enemy tile to attack using
-              Action Points (AP).
+              2x if legs crippled). Select an enemy, review the preview, then
+              confirm the attack. Green rings mark your active unit.
             </p>
           </div>
 
@@ -269,17 +315,25 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-4">
           {/* 12x8 Top-Down Tactical Grid (Takes 3 columns on desktop) */}
           <div className="lg:col-span-3 flex flex-col gap-3">
-            <div className="overflow-x-auto rounded-xl border border-amber-900/60 bg-stone-900 p-3">
+            <div className="overflow-x-auto rounded-xl border border-amber-900/60 bg-stone-900 p-2">
               <div
-                className="relative grid gap-1.5 mx-auto"
+                className="relative grid mx-auto isolate rounded-lg"
                 style={{
                   gridTemplateColumns: `repeat(${combat.gridWidth}, minmax(54px, 1fr))`,
                   minWidth: "680px",
+                  backgroundColor: landscape.base,
+                  backgroundImage: `radial-gradient(ellipse at 18% 25%, ${landscape.accent}75 0%, transparent 42%), radial-gradient(ellipse at 82% 70%, ${landscape.accent}90 0%, transparent 35%), repeating-linear-gradient(165deg, transparent 0px, transparent 23px, #fff3 24px, transparent 26px)`,
                 }}
               >
+                {/highway|road/i.test(terrain) && <div aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-lg" style={{
+                  background: "linear-gradient(115deg, transparent 30%, #5d5b5260 31%, #65635990 48%, #ddcdaa55 49%, #65635990 50%, #5d5b5260 66%, transparent 67%)",
+                }} />}
+                <CombatUnitLayer units={combat.units} gridWidth={combat.gridWidth} gridHeight={combat.gridHeight}
+                  activeUnitId={combat.activeUnitId} selectedUnitId={selectedEnemyId}
+                  onAnimationBusyChange={handleAnimationBusyChange} />
                 {/* Projectile Tracer & Muzzle Flash SVG Overlay */}
                 {animEffect && (
-                  <svg
+                  <svg key={animEffect.id}
                     viewBox={`0 0 ${combat.gridWidth * 100} ${
                       combat.gridHeight * 100
                     }`}
@@ -347,7 +401,7 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
                       combat.outcome === "ongoing" &&
                       activeUnit?.isPlayerTeam &&
                       !unitOnTile &&
-                      distFromActive === 1 &&
+                      ((distFromActive === 1 && activeUnit.ap >= effectiveMoveCost) || (findCombatPath(combat, { x: activeUnit.x, y: activeUnit.y }, { x, y }, activeUnit).path.length > 0)) &&
                       activeUnit.ap >= effectiveMoveCost;
 
                     const isEnemyTile =
@@ -376,54 +430,27 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
                             setHoveredEnemyId(null);
                           }
                         }}
+                        onFocus={() => setHoveredEnemyId(isEnemyTile && unitOnTile ? unitOnTile.id : null)}
+                        onBlur={() => setHoveredEnemyId(null)}
+                        aria-label={unitOnTile
+                          ? `${unitOnTile.name}, ${unitOnTile.hp} HP, tile ${x}, ${y}${isEnemyTile ? ", select target" : ""}`
+                          : `Tile ${x}, ${y}, ${tile.cover}, ${effectiveMoveCost} AP${canStepHere ? ", move here" : ""}`}
+                        aria-pressed={isEnemyTile ? unitOnTile?.id === selectedEnemyId : undefined}
                         onClick={() => {
-                          if (combat.outcome !== "ongoing") return;
-                          if (canStepHere) {
-                            onMoveActiveUnit(x, y);
-                          } else if (isEnemyTile && unitOnTile && activeUnit) {
-                            const preview = calculateShotPreview(
-                              combat,
-                              activeUnit,
-                              unitOnTile,
-                              combat.selectedFiringMode
-                            );
-                            if (preview.canAttack) {
-                              pendingAttackRef.current = {
-                                attackerX: activeUnit.x,
-                                attackerY: activeUnit.y,
-                                targetX: unitOnTile.x,
-                                targetY: unitOnTile.y,
-                                targetId: unitOnTile.id,
-                                prevHp: unitOnTile.hp,
-                                mode: combat.selectedFiringMode,
-                                isRanged: weaponStats?.ammoType !== null,
-                              };
-                            }
-                            onAttackTarget(unitOnTile.id);
-                          }
+                          if (combat.outcome !== "ongoing" || animationBusyRef.current || !activeUnit?.isPlayerTeam) return;
+                          if (canStepHere) onMoveActiveUnit(x, y);
+                          else if (isEnemyTile && unitOnTile) setSelectedEnemyId(unitOnTile.id);
                         }}
-                        className={`relative flex h-16 flex-col items-center justify-between rounded-lg border p-1 text-[10px] transition ${
-                          unitOnTile?.id === combat.activeUnitId
-                            ? "border-2 border-emerald-400 bg-emerald-950/60 shadow-[0_0_12px_rgba(52,211,153,0.4)]"
-                            : unitOnTile?.isPlayerTeam
-                            ? "border-sky-500/80 bg-sky-950/50"
-                            : isEnemyTile
-                            ? "border-red-500/90 bg-red-950/50 hover:bg-red-900/70 cursor-crosshair"
-                            : canStepHere
-                            ? "border-emerald-600/60 bg-stone-950/90 hover:bg-emerald-950/40 cursor-pointer"
-                            : tile.cover === "wagon"
-                            ? "border-amber-600/60 bg-amber-950/40"
-                            : tile.cover === "rocks" || tile.cover === "ruins"
-                            ? "border-stone-600 bg-stone-800/80"
-                            : tile.cover === "sand"
-                            ? "border-yellow-900/50 bg-yellow-950/20"
-                            : "border-stone-800/80 bg-stone-950/70"
+                        className={`mr-combat-tile relative flex h-20 flex-col items-center justify-between border border-transparent p-1 text-[10px] ${
+                          unitOnTile?.id === selectedEnemyId ? "ring-2 ring-inset ring-amber-300 bg-amber-300/15"
+                          : canStepHere ? "ring-1 ring-inset ring-emerald-800/60 hover:bg-emerald-200/20 cursor-pointer"
+                          : isEnemyTile ? "hover:bg-red-300/20 cursor-crosshair" : ""
                         }`}
                       >
                         {/* Floating Combat Feedback Popup on Target Tile */}
                         {isTargetAnimTile && animEffect && (
-                          <div
-                            className={`pointer-events-none absolute -top-3 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-extrabold shadow-lg animate-bounce ${
+                          <div key={animEffect.id}
+                            className={`pointer-events-none absolute -top-3 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-extrabold shadow-lg mr-combat-feedback ${
                               animEffect.isCrit
                                 ? "bg-red-600 text-yellow-200 border border-yellow-300"
                                 : animEffect.isCripple
@@ -445,7 +472,7 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
                         )}
 
                         {/* Top row: Coordinates or Cover badge */}
-                        <div className="z-10 flex w-full items-center justify-between px-0.5 text-[9px] text-stone-400">
+                        <div className="z-10 flex w-full items-center justify-between px-0.5 text-[9px] font-semibold text-stone-800">
                           <span>
                             {x},{y}
                           </span>
@@ -455,88 +482,18 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
                             </span>
                           )}
                           {tile.moveApCost > 1 && (
-                            <span className="text-yellow-400">2AP</span>
+                            <span className="rounded bg-stone-950/80 px-1 text-amber-200">{effectiveMoveCost} AP</span>
                           )}
                         </div>
 
-                        {/* Background Cover Sprite when unit is also standing on cover */}
-                        {unitOnTile && tile.cover !== "none" && (
-                          <div className="pointer-events-none absolute inset-1 opacity-30">
-                            <TopDownCoverSprite
-                              cover={tile.cover}
-                              className="h-full w-full"
-                            />
+                        {/* Terrain stays on its tile; moving units live above the board. */}
+                        {tile.cover !== "none" && (
+                          <div className={`pointer-events-none absolute inset-1 flex items-center justify-center ${unitOnTile ? "opacity-55" : ""}`}>
+                            <TopDownCoverSprite cover={tile.cover}
+                              className={tile.cover === "wagon" || tile.cover === "ruins" ? "h-16 w-full drop-shadow-md" : "h-12 w-12 drop-shadow-md"} />
                           </div>
                         )}
-
-                        {/* Center: Top-Down Unit Sprite or Top-Down Terrain Cover Sprite */}
-                        {unitOnTile ? (
-                          <div className="z-10 flex items-center gap-1">
-                            <div className="h-8 w-8 shrink-0">
-                              <TopDownUnitSprite
-                                isPlayerTeam={unitOnTile.isPlayerTeam}
-                                weaponId={unitOnTile.weapon}
-                                isCrouched={unitOnTile.isCrouched}
-                                crippledLegs={unitOnTile.crippledLegs}
-                                isActive={unitOnTile.id === combat.activeUnitId}
-                                className="h-full w-full"
-                              />
-                            </div>
-                            <div className="flex flex-col items-start leading-none">
-                              <span
-                                className={`font-bold text-[10px] truncate max-w-[36px] ${
-                                  unitOnTile.isPlayerTeam
-                                    ? "text-emerald-200"
-                                  : "text-red-200"
-                                }`}
-                              >
-                                {unitOnTile.name.split(" ")[0]}
-                              </span>
-                              <span className="text-[8px] text-stone-300">
-                                {unitOnTile.hp}HP
-                              </span>
-                            </div>
-                          </div>
-                        ) : tile.cover !== "none" ? (
-                          <div className="flex flex-col items-center justify-center">
-                            <div className="h-7 w-7">
-                              <TopDownCoverSprite
-                                cover={tile.cover}
-                                className="h-full w-full"
-                              />
-                            </div>
-                            {canStepHere && (
-                              <span className="text-[8px] text-emerald-300 font-semibold">
-                                • {effectiveMoveCost} AP
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-[11px] text-stone-500 font-medium">
-                            {canStepHere ? `• ${effectiveMoveCost} AP` : ""}
-                          </div>
-                        )}
-
-                        {/* Bottom HP Bar for units */}
-                        {unitOnTile ? (
-                          <div className="z-10 h-1.5 w-full overflow-hidden rounded-full bg-stone-800">
-                            <div
-                              className={`h-full ${
-                                unitOnTile.isPlayerTeam
-                                  ? "bg-emerald-400"
-                                  : "bg-red-500"
-                              }`}
-                              style={{
-                                width: `${Math.max(
-                                  0,
-                                  (unitOnTile.hp / unitOnTile.maxHp) * 100
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <div className="h-1" />
-                        )}
+                        {canStepHere && <span className="absolute bottom-1 rounded bg-emerald-950/85 px-1 text-[10px] font-bold text-emerald-100">{effectiveMoveCost} AP</span>}
                       </button>
                     );
                   })
@@ -544,6 +501,7 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
               </div>
             </div>
 
+            <p className="text-[11px] text-stone-400">{landscape.label} · {animationBusy ? "Resolving movement / impact…" : "Select a target to prepare an attack."}</p>
             {/* Shot Accuracy Preview Banner */}
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-stone-800 bg-stone-900/90 px-4 py-2.5 text-xs">
               {shotPreview && hoveredEnemy ? (
@@ -573,11 +531,16 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
                 </div>
               ) : (
                 <span className="text-stone-400">
-                  💡 Hover over any red enemy unit on the grid to preview Hit
-                  Chance %, Cover Penalty, Damage, and AP Cost before firing.
+                  Hover, focus, or select an enemy to preview accuracy, damage, and AP cost.
                 </span>
               )}
 
+              <button type="button" onClick={confirmAttack}
+                onMouseEnter={() => setHoveredEnemyId(null)} onFocus={() => setHoveredEnemyId(null)}
+                disabled={animationBusy || combat.outcome !== "ongoing" || !activeUnit?.isPlayerTeam || !selectedEnemy || !selectedShotPreview?.canAttack}
+                className="rounded-lg bg-amber-400 px-4 py-2 font-bold text-stone-950 hover:bg-amber-300 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-amber-100">
+                {weaponStats?.ammoType === null ? "Confirm Strike" : "Confirm Shot"}{selectedEnemy ? ` · ${selectedEnemy.name}` : ""}
+              </button>
               <div className="flex items-center gap-3 text-[11px] text-stone-400">
                 <span>🛒 Wagon: -45% Hit</span>
                 <span>🧱 Ruins: -35% Hit</span>
@@ -590,7 +553,7 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
           {/* Right Sidebar: Firing Modes, Actions & Combat Log */}
           <div className="flex flex-col justify-between gap-3">
             {combat.outcome === "ongoing" && activeUnit ? (
-              <div className="rounded-xl border border-amber-900/60 bg-stone-900 p-3.5 space-y-3">
+              <fieldset disabled={animationBusy || !activeUnit.isPlayerTeam} className="rounded-xl border border-amber-900/60 bg-stone-900 p-3.5 space-y-3 disabled:opacity-60">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-amber-300">
                   Action Points (AP) & Firing Modes
                 </h3>
@@ -738,6 +701,23 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
                     </span>
                     <span>3 AP</span>
                   </button>
+                  {(state.inventory.antibiotics ?? 0) > 0 && (
+                    <button
+                      type="button"
+                      disabled={
+                        activeUnit.ap < 3 ||
+                        activeUnit.hp >= activeUnit.maxHp
+                      }
+                      onClick={onUseAntibiotics ?? onUseFieldBandage}
+                      className="w-full flex items-center justify-between rounded-lg border border-teal-700/60 bg-teal-950/60 px-3 py-2 text-xs font-bold text-teal-200 hover:bg-teal-900 disabled:opacity-35 cursor-pointer"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <HeartPulse className="h-3.5 w-3.5" /> Antibiotics (+50 HP,{" "}
+                        {state.inventory.antibiotics ?? 0} left)
+                      </span>
+                      <span>3 AP</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Quick Weapon Switch for Main Character */}
@@ -781,8 +761,8 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
                 >
                   <SkipForward className="h-4 w-4" /> End Unit Turn
                 </button>
-              </div>
-            ) : (
+              </fieldset>
+            ) : combat.outcome !== "ongoing" ? (
               /* Combat Outcome Summary Card */
               <div className="rounded-xl border-2 border-amber-500 bg-stone-900 p-4 text-center space-y-3">
                 <Trophy className="mx-auto h-10 w-10 text-amber-400" />
@@ -794,17 +774,18 @@ export const TacticalCombatModal: React.FC<TacticalCombatModalProps> = ({
                 <p className="text-xs text-stone-300">
                   {combat.outcome === "victory"
                     ? `You defeated ${combat.encounter.enemyGroupName} and recovered $${combat.encounter.lootReward.cash} plus battlefield salvage!`
-                    : "You were knocked unconscious, losing part of your script, but your donkey dragged you back to safety."}
+                    : "Your caravan was defeated. Return to the map to assess your losses and recover."}
                 </p>
                 <button
                   type="button"
                   onClick={onFinishCombat}
+                  disabled={animationBusy}
                   className="w-full rounded-xl bg-emerald-600 py-2.5 text-xs font-bold uppercase text-stone-950 hover:bg-emerald-500 cursor-pointer"
                 >
-                  Collect Salvage & Return to Map
+                  {combat.outcome === "victory" ? "Collect Salvage & Return to Map" : "Return to Map"}
                 </button>
               </div>
-            )}
+            ) : <p className="text-sm text-stone-300">Waiting for the next unit…</p>}
 
             {/* Tactical Combat Log */}
             <div className="flex-1 rounded-xl border border-stone-800 bg-stone-900/90 p-3">

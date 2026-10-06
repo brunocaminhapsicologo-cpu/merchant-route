@@ -9,8 +9,10 @@ import {
   CombatUnit,
   FiringMode,
   GameState,
+  ItemId,
   RoadEncounter,
   RouteEdge,
+  TerrainType,
 } from "./types";
 import { ITEMS } from "./worldData";
 
@@ -20,7 +22,7 @@ export function generateRoadEncounter(
 ): RoadEncounter {
   // Check if there is an active uncompleted bounty on this route
   const activeBounty = state.bounties.find(
-    (b) => b.routeId === route.id && !b.completed
+    (b) => b.routeId === route.id && !b.completed && (state.acceptedBountyIds ?? []).includes(b.id)
   );
 
   if (activeBounty && Math.random() < 0.65) {
@@ -348,10 +350,13 @@ export function generateRoadEncounter(
 
 export function initializeTacticalCombat(
   state: GameState,
-  encounter: RoadEncounter
+  encounter: RoadEncounter,
+  terrainOverride?: TerrainType
 ): CombatState {
   const gridWidth = 12;
-  const gridHeight = 8;
+  const gridHeight = Math.max(8, Math.ceil(Math.max(state.hiredMercenaries.length + 1, encounter.enemies.length) / 3));
+  const hasWagon = ["wooden_cart_donkey", "heavy_wagon_horse", "brahmin_freight_wagon", "desert_dune_buggy", "armored_pickup"].includes(state.transport);
+  const terrain: TerrainType = terrainOverride ?? state.exploration?.terrain ?? state.travelState?.terrain ?? "scorched_flats";
 
   const tiles: CombatGridTile[][] = [];
   for (let y = 0; y < gridHeight; y++) {
@@ -362,23 +367,53 @@ export function initializeTacticalCombat(
       let defenseBonus = 0;
 
       // Player's caravan wagon cover on the left defensive flank
-      if ((x === 2 && y === 3) || (x === 2 && y === 4)) {
+      if (hasWagon && ((x === 2 && y === 3) || (x === 2 && y === 4))) {
         cover = "wagon";
         defenseBonus = 45;
-      } else if (
-        (x === 4 && y === 1) ||
-        (x === 5 && y === 5) ||
-        (x === 7 && y === 2) ||
-        (x === 8 && y === 6)
-      ) {
-        cover = "rocks";
-        defenseBonus = 30;
-      } else if ((x === 6 && y === 3) || (x === 9 && y === 4)) {
-        cover = "ruins";
-        defenseBonus = 35;
-      } else if ((x === 4 && y === 6) || (x === 7 && y === 1)) {
-        cover = "sand";
-        moveApCost = 2;
+      } else if (terrain === "rocky_canyon" && x >= 3 && x <= 9) {
+        if ((x === 4 && y === 1) || (x === 5 && y === 5) || (x === 7 && y === 2) || (x === 8 && y === 6) || (x === 5 && y === 2) || (x === 8 && y === 3)) {
+          cover = "rocks";
+          defenseBonus = 30;
+        } else if ((x === 6 && y === 3) || (x === 9 && y === 4) || (x === 4 && y === 4)) {
+          cover = "ruins";
+          defenseBonus = 35;
+        }
+      } else if (terrain === "sand_dunes" && x >= 3 && x <= 9) {
+        if ((x === 4 && y === 6) || (x === 7 && y === 1) || (x === 5 && y === 3) || (x === 8 && y === 4)) {
+          cover = "sand";
+          moveApCost = 2;
+        } else if ((x === 5 && y === 5) || (x === 7 && y === 2)) {
+          cover = "rocks";
+          defenseBonus = 30;
+        } else if (x === 6 && y === 3) {
+          cover = "ruins";
+          defenseBonus = 35;
+        }
+      } else if (terrain === "old_highway" && x >= 3 && x <= 9) {
+        if ((x === 6 && y === 3) || (x === 9 && y === 4) || (x === 4 && y === 2) || (x === 7 && y === 5)) {
+          cover = "ruins";
+          defenseBonus = 35;
+        } else if ((x === 4 && y === 1) || (x === 8 && y === 6)) {
+          cover = "rocks";
+          defenseBonus = 30;
+        }
+      } else {
+        // Standard distribution (scorched_flats & default)
+        if (
+          (x === 4 && y === 1) ||
+          (x === 5 && y === 5) ||
+          (x === 7 && y === 2) ||
+          (x === 8 && y === 6)
+        ) {
+          cover = "rocks";
+          defenseBonus = 30;
+        } else if ((x === 6 && y === 3) || (x === 9 && y === 4)) {
+          cover = "ruins";
+          defenseBonus = 35;
+        } else if ((x === 4 && y === 6) || (x === 7 && y === 1)) {
+          cover = "sand";
+          moveApCost = 2;
+        }
       }
 
       row.push({
@@ -387,6 +422,7 @@ export function initializeTacticalCombat(
         cover,
         moveApCost,
         defenseBonus,
+        coverDirection: defenseBonus > 0 ? (x < 6 ? "east" : "west") : undefined,
       });
     }
     tiles.push(row);
@@ -410,7 +446,8 @@ export function initializeTacticalCombat(
       ap: playerMaxAp,
       maxAp: playerMaxAp,
       weapon: state.equippedWeapon,
-      currentMagAmmo: playerWeaponStats.magazineSize,
+      currentMagAmmo: Math.min(playerWeaponStats.magazineSize, Math.max(0, state.weaponMagazines?.[state.equippedWeapon] ?? 0)),
+      magazines: { ...state.weaponMagazines },
       accuracy:
         playerWeaponStats.baseAccuracy +
         getRangedAccuracyBonus(state.attributes),
@@ -426,29 +463,26 @@ export function initializeTacticalCombat(
       name: merc.name,
       role: merc.roleTitle,
       isPlayerTeam: true,
-      x: 1,
-      y: idx === 0 ? 5 : 1,
+      x: Math.floor((idx >= gridHeight + 3 ? idx + 1 : idx) / gridHeight),
+      y: (idx >= gridHeight + 3 ? idx + 1 : idx) % gridHeight,
       hp: merc.hp,
       maxHp: merc.maxHp,
       ap: merc.maxAp,
       maxAp: merc.maxAp,
       weapon: merc.equippedWeapon,
-      currentMagAmmo: mercWeaponStats.magazineSize,
+      currentMagAmmo: Math.min(mercWeaponStats.magazineSize, Math.max(0, merc.magazines?.[merc.equippedWeapon] ?? 0)),
+      magazines: { ...merc.magazines },
+      crippledLegs: merc.crippledLegs,
       accuracy: mercWeaponStats.baseAccuracy + merc.accuracyBonus,
       morale: 100,
     });
   });
 
   // Add enemy units on the right side of the grid
-  const enemyPositions = [
-    { x: 10, y: 3 },
-    { x: 10, y: 5 },
-    { x: 10, y: 1 },
-    { x: 9, y: 6 },
-  ];
+
 
   encounter.enemies.forEach((enemy, idx) => {
-    const pos = enemyPositions[idx % enemyPositions.length];
+    const pos = { x: 11 - Math.floor(idx / gridHeight), y: idx % gridHeight };
     const enemyWeaponStats = ITEMS[enemy.weapon].weaponStats!;
     units.push({
       id: `enemy_${idx}`,
@@ -463,6 +497,7 @@ export function initializeTacticalCombat(
       maxAp: enemy.maxAp,
       weapon: enemy.weapon,
       currentMagAmmo: enemyWeaponStats.magazineSize,
+      reserveAmmo: enemyWeaponStats.ammoType ? enemyWeaponStats.magazineSize * 2 : 0,
       accuracy: enemy.accuracy,
       morale: enemy.morale,
     });
@@ -480,7 +515,7 @@ export function initializeTacticalCombat(
       playerWeaponStats.ammoType === null ? "melee" : "snap",
     combatLog: [
       `⚔️ Round 1 — Tactical Combat engaged against ${encounter.enemyGroupName}!`,
-      `Position your units behind the Wagon (45% Cover) or Rocks (30% Cover) and spend Action Points (AP) wisely.`,
+      hasWagon ? `Use your Wagon (45% Cover) or Rocks (30% Cover) and spend Action Points wisely.` : `Use Rocks (30% Cover) and Ruins (35% Cover); your transport provides no wagon cover.`,
     ],
     outcome: "ongoing",
   };
@@ -511,6 +546,13 @@ export function calculateShotPreview(
 } {
   const weaponStats = ITEMS[attacker.weapon].weaponStats!;
   const dist = getManhattanDistance(attacker.x, attacker.y, target.x, target.y);
+
+  if(attacker.hp<=0 || target.hp<=0 || attacker.isFled || target.isFled || attacker.isPlayerTeam===target.isPlayerTeam || weaponStats.ammoType && mode==="melee") {
+    return {canAttack:false,reason:"Invalid attacker, target, or weapon mode",apCost:0,hitChancePercent:0,minDamage:0,maxDamage:0,distance:dist};
+  }
+  if(weaponStats.ammoType && !hasLineOfSight(combat,attacker,target)){
+    return {canAttack:false,reason:"Ruins block the line of sight — reposition to flank",apCost:weaponStats.snapShotAp,hitChancePercent:0,minDamage:weaponStats.minDamage,maxDamage:weaponStats.maxDamage,distance:dist};
+  }
 
   const effectiveMode: FiringMode =
     weaponStats.ammoType === null ? "melee" : mode;
@@ -592,7 +634,10 @@ export function calculateShotPreview(
   // Target tile cover defense bonus (ignored in melee)
   const targetTile = combat.tiles[target.y]?.[target.x];
   if (effectiveMode !== "melee" && targetTile) {
-    hitChance -= targetTile.defenseBonus;
+    const facing=targetTile.coverDirection;
+    const dx=attacker.x-target.x,dy=attacker.y-target.y;
+    const protectedSide=!facing || (facing==="west"&&dx<0&&Math.abs(dx)>=Math.abs(dy)) || (facing==="east"&&dx>0&&Math.abs(dx)>=Math.abs(dy)) || (facing==="north"&&dy<0&&Math.abs(dy)>=Math.abs(dx)) || (facing==="south"&&dy>0&&Math.abs(dy)>=Math.abs(dx));
+    hitChance -= protectedSide?targetTile.defenseBonus:0;
   }
 
   const clampedHitChance = Math.max(12, Math.min(96, Math.round(hitChance)));
@@ -615,3 +660,199 @@ export function calculateShotPreview(
     distance: dist,
   };
 }
+
+export function hasLineOfSight(combat:CombatState,from:{x:number;y:number},to:{x:number;y:number}):boolean{
+  let x=from.x,y=from.y;const dx=Math.abs(to.x-x),dy=-Math.abs(to.y-y),sx=x<to.x?1:-1,sy=y<to.y?1:-1;let error=dx+dy;
+  while(x!==to.x || y!==to.y){const twice=2*error;if(twice>=dy){error+=dy;x+=sx;}if(twice<=dx){error+=dx;y+=sy;}if((x!==to.x||y!==to.y)&&combat.tiles[y]?.[x]?.cover==="ruins")return false;}
+  return true;
+}
+
+/** Transfers loose rounds once for absent magazines, preserving even explicit empty loads. */
+export function initializeCombatWithAmmo(state: GameState, encounter: RoadEncounter): GameState {
+  if (state.combatState?.outcome === "ongoing") return state;
+  const inventory = { ...state.inventory };
+  const load = (weapon: GameState["equippedWeapon"], existing: CombatUnit["magazines"] = {}) => {
+    const magazines = { ...existing };
+    const stats = ITEMS[weapon].weaponStats!;
+    if (stats.ammoType && magazines[weapon] === undefined) {
+      const rounds = Math.min(stats.magazineSize, Math.floor(Math.max(0, inventory[stats.ammoType] ?? 0)));
+      inventory[stats.ammoType] = (inventory[stats.ammoType] ?? 0) - rounds;
+      magazines[weapon] = rounds;
+    }
+    return magazines;
+  };
+  const weaponMagazines = load(state.equippedWeapon, state.weaponMagazines);
+  const hiredMercenaries = state.hiredMercenaries.map(merc => ({ ...merc, magazines: load(merc.equippedWeapon, merc.magazines) }));
+  const prepared = { ...state, inventory, weaponMagazines, hiredMercenaries,
+    exploration: state.exploration ? { ...state.exploration, isMoving: false, isPaused: true } : undefined,
+    travelState: state.travelState ? { ...state.travelState, isPaused: true } : null };
+  return { ...prepared, pendingEncounter: null, combatState: initializeTacticalCombat(prepared, encounter) };
+}
+
+/**
+ * Calculates optimal step-by-step path between start and goal on the tactical grid.
+ * Respects terrain AP costs, obstacle boundaries, and living unit collisions.
+ */
+export function findCombatPath(
+  combat: CombatState,
+  start: { x: number; y: number },
+  goal: { x: number; y: number },
+  unit?: CombatUnit
+): { path: Array<{ x: number; y: number }>; totalApCost: number; reachable: boolean } {
+  if (
+    goal.x < 0 ||
+    goal.y < 0 ||
+    goal.x >= combat.gridWidth ||
+    goal.y >= combat.gridHeight
+  ) {
+    return { path: [], totalApCost: 0, reachable: false };
+  }
+
+  const goalOccupied = combat.units.some(
+    u => u.x === goal.x && u.y === goal.y && u.hp > 0 && !u.isFled && u.id !== unit?.id
+  );
+  if (goalOccupied) {
+    return { path: [], totalApCost: 0, reachable: false };
+  }
+
+  if (start.x === goal.x && start.y === goal.y) {
+    return { path: [], totalApCost: 0, reachable: true };
+  }
+
+  const key = (x: number, y: number) => `${x},${y}`;
+  const startKey = key(start.x, start.y);
+  const goalKey = key(goal.x, goal.y);
+
+  const openSet: Array<{ x: number; y: number; f: number }> = [{ x: start.x, y: start.y, f: 0 }];
+  const cameFrom = new Map<string, { x: number; y: number }>();
+  const gScore = new Map<string, number>();
+  gScore.set(startKey, 0);
+
+  const crippledMult = unit?.crippledLegs ? 2 : 1;
+
+  while (openSet.length > 0) {
+    openSet.sort((a, b) => a.f - b.f);
+    const current = openSet.shift()!;
+    const curKey = key(current.x, current.y);
+
+    if (curKey === goalKey) {
+      const path: Array<{ x: number; y: number }> = [];
+      let curr = { x: goal.x, y: goal.y };
+      while (key(curr.x, curr.y) !== startKey) {
+        path.unshift(curr);
+        curr = cameFrom.get(key(curr.x, curr.y))!;
+      }
+      return { path, totalApCost: gScore.get(goalKey) ?? 0, reachable: true };
+    }
+
+    const neighbors = [
+      { x: current.x + 1, y: current.y },
+      { x: current.x - 1, y: current.y },
+      { x: current.x, y: current.y + 1 },
+      { x: current.x, y: current.y - 1 },
+    ];
+
+    for (const n of neighbors) {
+      if (n.x < 0 || n.y < 0 || n.x >= combat.gridWidth || n.y >= combat.gridHeight) continue;
+
+      const isOccupied = combat.units.some(
+        u => u.x === n.x && u.y === n.y && u.hp > 0 && !u.isFled && u.id !== unit?.id
+      );
+      if (isOccupied) continue;
+
+      const tile = combat.tiles[n.y][n.x];
+      const stepCost = (tile?.moveApCost ?? 1) * crippledMult;
+      const tentativeG = (gScore.get(curKey) ?? Infinity) + stepCost;
+      const nKey = key(n.x, n.y);
+
+      if (tentativeG < (gScore.get(nKey) ?? Infinity)) {
+        cameFrom.set(nKey, current);
+        gScore.set(nKey, tentativeG);
+        const h = Math.abs(n.x - goal.x) + Math.abs(n.y - goal.y);
+        const existing = openSet.find(item => item.x === n.x && item.y === n.y);
+        if (existing) {
+          existing.f = tentativeG + h;
+        } else {
+          openSet.push({ x: n.x, y: n.y, f: tentativeG + h });
+        }
+      }
+    }
+  }
+
+  return { path: [], totalApCost: 0, reachable: false };
+}
+
+/**
+ * Applies medical supplies in tactical combat, consuming AP and restoring combatant health.
+ */
+export function useCombatConsumable(
+  state: GameState,
+  unitId: string,
+  itemId: ItemId
+): { state: GameState; success: boolean; message: string; sound: "heal" | null } {
+  const combat = state.combatState;
+  if (!combat || combat.outcome !== "ongoing") {
+    return { state, success: false, message: "No ongoing combat.", sound: null };
+  }
+  const unit = combat.units.find(u => u.id === unitId);
+  if (!unit || unit.hp <= 0 || unit.isFled || !unit.isPlayerTeam) {
+    return { state, success: false, message: "Unit cannot act.", sound: null };
+  }
+  const apCost = 3;
+  if (unit.ap < apCost) {
+    return { state, success: false, message: `Requires ${apCost} AP (Have ${unit.ap} AP).`, sound: null };
+  }
+  const count = state.inventory[itemId] ?? 0;
+  if (count <= 0) {
+    return { state, success: false, message: `No ${ITEMS[itemId]?.name ?? itemId} in caravan cargo.`, sound: null };
+  }
+
+  let heal = 0;
+  let clearedCrippled = false;
+  if (itemId === "field_bandage") {
+    heal = 25;
+    clearedCrippled = unit.crippledLegs === true;
+  } else if (itemId === "antibiotics") {
+    heal = 50;
+    clearedCrippled = unit.crippledLegs === true;
+  } else {
+    return { state, success: false, message: "Item is not a battlefield consumable.", sound: null };
+  }
+
+  const newHp = Math.min(unit.maxHp, unit.hp + heal);
+  const actualHealed = newHp - unit.hp;
+  const nextUnits = combat.units.map(u => {
+    if (u.id !== unitId) return u;
+    return {
+      ...u,
+      hp: newHp,
+      ap: u.ap - apCost,
+      crippledLegs: clearedCrippled ? false : u.crippledLegs,
+    };
+  });
+
+  const nextInventory = {
+    ...state.inventory,
+    [itemId]: Math.max(0, count - 1),
+  };
+
+  const logMsg = `${unit.name} treated wounds with ${ITEMS[itemId].name} (+${actualHealed} HP${clearedCrippled ? ", legs bandaged" : ""}) [-${apCost} AP]`;
+  const nextCombat: CombatState = {
+    ...combat,
+    units: nextUnits,
+    combatLog: [logMsg, ...combat.combatLog].slice(0, 50),
+  };
+
+  return {
+    state: {
+      ...state,
+      inventory: nextInventory,
+      combatState: nextCombat,
+      hp: unit.isMainCharacter ? newHp : state.hp,
+    },
+    success: true,
+    message: logMsg,
+    sound: "heal",
+  };
+}
+

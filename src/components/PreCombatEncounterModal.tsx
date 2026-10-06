@@ -38,7 +38,7 @@ export const PreCombatEncounterModal: React.FC<
   onAttemptIntimidate,
   onJettisonItem,
 }) => {
-  const terrain = state.travelState?.terrain ?? "scorched_flats";
+  const terrain = state.exploration?.terrain ?? state.travelState?.terrain ?? "scorched_flats";
   const speedInfo = getCaravanSpeedBreakdown(state, terrain);
   const currentWeight = getCurrentCargoWeightKg(state.inventory);
   const maxCapacity = getMaxCargoCapacityKg(state);
@@ -188,7 +188,7 @@ export const PreCombatEncounterModal: React.FC<
                     onClick={() => onJettisonItem(itemId, 1)}
                     className="rounded-lg border border-amber-700/60 bg-stone-900 px-2.5 py-1 text-xs text-amber-200 hover:bg-amber-900/50 cursor-pointer"
                   >
-                    Dump 1x {item.name} (-{item.weightKg}kg, Left: {qty})
+                    Dump 1x {item.name} (-{item.weightKg}kg, Left: {Number((qty??0).toFixed(1))})
                   </button>
                 );
               })}

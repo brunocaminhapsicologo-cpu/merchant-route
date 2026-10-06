@@ -16,6 +16,12 @@ interface WindowWithWebkitAudio extends Window {
 class WastelandSoundEngine {
   private ctx: AudioContext | null = null;
   private muted = false;
+  private effectsOutput: GainNode | null = null;
+  private ambientOutput: GainNode | null = null;
+
+  private effectsVolume = .7;
+  private ambienceVolume = .25;
+  private ambienceScene: "desert"|"town"|"combat" = "desert";
   private whiteNoiseBuffer: AudioBuffer | null = null;
   private pinkNoiseBuffer: AudioBuffer | null = null;
   private saturationCurve: Float32Array<ArrayBuffer> | null = null;
@@ -80,6 +86,37 @@ class WastelandSoundEngine {
 
     return this.ctx;
   }
+
+  private getEffectsOutput(ctx: AudioContext): GainNode {
+    if(!this.effectsOutput){this.effectsOutput=ctx.createGain();this.effectsOutput.gain.value=this.effectsVolume;this.effectsOutput.connect(ctx.destination);}
+    return this.effectsOutput;
+  }
+
+  public getVolumes(): {effects:number;ambience:number} {return {effects:this.effectsVolume,ambience:this.ambienceVolume};}
+  public loadPreferences(): void {
+    if(typeof window==="undefined")return;
+    try {const pref=JSON.parse(window.localStorage.getItem("merchant_route_audio")??"{}");if(typeof pref.effects==="number")this.effectsVolume=Math.max(0,Math.min(1,pref.effects));if(typeof pref.ambience==="number")this.ambienceVolume=Math.max(0,Math.min(1,pref.ambience));}catch{/* Keep safe defaults. */}
+  }
+  public setVolumes(effects:number,ambience:number): void {
+    this.effectsVolume=Math.max(0,Math.min(1,effects));this.ambienceVolume=Math.max(0,Math.min(1,ambience));
+    if(this.effectsOutput)this.effectsOutput.gain.value=this.effectsVolume;
+    if(this.ambientOutput)this.ambientOutput.gain.value=this.ambienceVolume*.25;
+    try{window.localStorage.setItem("merchant_route_audio",JSON.stringify({effects:this.effectsVolume,ambience:this.ambienceVolume}));}catch{/* Sound still works without storage. */}
+  }
+  public unlockAudio(): void {const ctx=this.getContext();if(ctx){void ctx.resume().catch(()=>undefined);this.startAmbience(this.ambienceScene);}}
+  public startAmbience(scene:"desert"|"town"|"combat"): void {
+    this.ambienceScene=scene;
+    const ctx=this.getContext();if(!ctx)return;
+    if(!this.ambientOutput){
+      const source=this.createNoiseSource(ctx,"pink");source.loop=true;
+      const filter=ctx.createBiquadFilter();filter.type="lowpass";filter.frequency.value=500;
+      const gain=ctx.createGain();gain.gain.value=0;
+      source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);source.start();
+      this.ambientOutput=gain;
+    }
+    this.ambientOutput.gain.setTargetAtTime(this.ambienceVolume*(scene==="combat"?.08:scene==="town"?.14:.25),ctx.currentTime,.5);
+  }
+  public pauseAudio(): void {if(this.ctx)void this.ctx.suspend().catch(()=>undefined);}
 
   private getWhiteNoiseBuffer(ctx: AudioContext): AudioBuffer {
     if (
@@ -193,7 +230,7 @@ class WastelandSoundEngine {
     shaper.oversample = "2x";
 
     master.connect(shaper);
-    shaper.connect(ctx.destination);
+    shaper.connect(this.getEffectsOutput(ctx));
 
     // 1. Low-end muzzle concussion / pitch-drop punch
     const punchOsc = ctx.createOscillator();
@@ -289,7 +326,7 @@ class WastelandSoundEngine {
 
     tailNoise.connect(tailFilter);
     tailFilter.connect(tailGain);
-    tailGain.connect(ctx.destination);
+    tailGain.connect(this.getEffectsOutput(ctx));
     tailNoise.start(startTime, Math.random() * 0.3);
     tailNoise.stop(startTime + config.tailDuration + 0.03);
 
@@ -306,7 +343,7 @@ class WastelandSoundEngine {
       ringGain.gain.setValueAtTime(0.11, startTime);
       ringGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.045);
       ringOsc.connect(ringGain);
-      ringGain.connect(ctx.destination);
+      ringGain.connect(this.getEffectsOutput(ctx));
       ringOsc.start(startTime);
       ringOsc.stop(startTime + 0.05);
     }
@@ -337,7 +374,7 @@ class WastelandSoundEngine {
 
         whoosh.connect(filter);
         filter.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(this.getEffectsOutput(ctx));
         whoosh.start(now, Math.random() * 0.5);
         whoosh.stop(now + 0.22);
 
@@ -358,7 +395,7 @@ class WastelandSoundEngine {
 
         bladeOsc.connect(hp);
         hp.connect(bladeGain);
-        bladeGain.connect(ctx.destination);
+        bladeGain.connect(this.getEffectsOutput(ctx));
         bladeOsc.start(now + 0.03);
         bladeOsc.stop(now + 0.16);
         break;
@@ -437,7 +474,7 @@ class WastelandSoundEngine {
         spreadGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
         spreadNoise.connect(spreadFilter);
         spreadFilter.connect(spreadGain);
-        spreadGain.connect(ctx.destination);
+        spreadGain.connect(this.getEffectsOutput(ctx));
         spreadNoise.start(now + 0.012, Math.random() * 0.5);
         spreadNoise.stop(now + 0.15);
         break;
@@ -521,7 +558,7 @@ class WastelandSoundEngine {
         whipGain.gain.setValueAtTime(0.28, now);
         whipGain.gain.exponentialRampToValueAtTime(0.001, now + 0.048);
         whipOsc.connect(whipGain);
-        whipGain.connect(ctx.destination);
+        whipGain.connect(this.getEffectsOutput(ctx));
         whipOsc.start(now);
         whipOsc.stop(now + 0.05);
         break;
@@ -590,7 +627,7 @@ class WastelandSoundEngine {
       oscGain.gain.exponentialRampToValueAtTime(0.001, start + click.duration);
 
       osc.connect(oscGain);
-      oscGain.connect(ctx.destination);
+      oscGain.connect(this.getEffectsOutput(ctx));
       osc.start(start);
       osc.stop(start + click.duration + 0.01);
 
@@ -607,7 +644,7 @@ class WastelandSoundEngine {
 
       noise.connect(bp);
       bp.connect(nGain);
-      nGain.connect(ctx.destination);
+      nGain.connect(this.getEffectsOutput(ctx));
       noise.start(start, Math.random() * 0.5);
       noise.stop(start + click.duration + 0.01);
     }
@@ -630,7 +667,7 @@ class WastelandSoundEngine {
     thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
 
     thudOsc.connect(thudGain);
-    thudGain.connect(ctx.destination);
+    thudGain.connect(this.getEffectsOutput(ctx));
     thudOsc.start(now);
     thudOsc.stop(now + 0.13);
 
@@ -650,7 +687,7 @@ class WastelandSoundEngine {
 
     impactNoise.connect(filter);
     filter.connect(noiseGain);
-    noiseGain.connect(ctx.destination);
+    noiseGain.connect(this.getEffectsOutput(ctx));
     impactNoise.start(now, Math.random() * 0.5);
     impactNoise.stop(now + 0.14);
 
@@ -671,7 +708,7 @@ class WastelandSoundEngine {
 
       crackOsc.connect(hp);
       hp.connect(crackGain);
-      crackGain.connect(ctx.destination);
+      crackGain.connect(this.getEffectsOutput(ctx));
       crackOsc.start(now);
       crackOsc.stop(now + 0.075);
     }
@@ -696,7 +733,7 @@ class WastelandSoundEngine {
 
     dustNoise.connect(dustFilter);
     dustFilter.connect(dustGain);
-    dustGain.connect(ctx.destination);
+    dustGain.connect(this.getEffectsOutput(ctx));
     dustNoise.start(now, Math.random() * 0.4);
     dustNoise.stop(now + 0.08);
 
@@ -724,7 +761,7 @@ class WastelandSoundEngine {
 
     whineOsc.connect(whineFilter);
     whineFilter.connect(whineGain);
-    whineGain.connect(ctx.destination);
+    whineGain.connect(this.getEffectsOutput(ctx));
     whineOsc.start(now + 0.01);
     whineOsc.stop(now + 0.31);
   }
@@ -769,7 +806,7 @@ class WastelandSoundEngine {
 
     crunch.connect(filter);
     filter.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this.getEffectsOutput(ctx));
     crunch.start(now, Math.random() * 0.8);
     crunch.stop(now + duration + 0.015);
   }
@@ -805,7 +842,7 @@ class WastelandSoundEngine {
 
       osc1.connect(coinGain);
       osc2.connect(coinGain);
-      coinGain.connect(ctx.destination);
+      coinGain.connect(this.getEffectsOutput(ctx));
 
       osc1.start(t);
       osc2.start(t);
@@ -845,7 +882,7 @@ class WastelandSoundEngine {
 
         hoofNoise.connect(filter);
         filter.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(this.getEffectsOutput(ctx));
         hoofNoise.start(now, Math.random() * 0.6);
         hoofNoise.stop(now + 0.065);
 
@@ -869,7 +906,7 @@ class WastelandSoundEngine {
 
           creakOsc.connect(creakFilter);
           creakFilter.connect(creakGain);
-          creakGain.connect(ctx.destination);
+          creakGain.connect(this.getEffectsOutput(ctx));
           creakOsc.start(now + 0.02);
           creakOsc.stop(now + 0.09);
         }
@@ -895,7 +932,7 @@ class WastelandSoundEngine {
 
         engineOsc.connect(filter);
         filter.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(this.getEffectsOutput(ctx));
         engineOsc.start(now);
         engineOsc.stop(now + 0.11);
         break;
@@ -934,7 +971,7 @@ class WastelandSoundEngine {
 
       osc.connect(filter);
       filter.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(this.getEffectsOutput(ctx));
 
       osc.start(now);
       osc.stop(now + 0.85);
@@ -951,7 +988,7 @@ class WastelandSoundEngine {
     rattleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
     rattle.connect(rattleFilter);
     rattleFilter.connect(rattleGain);
-    rattleGain.connect(ctx.destination);
+    rattleGain.connect(this.getEffectsOutput(ctx));
     rattle.start(now, 0.2);
     rattle.stop(now + 0.17);
   }
@@ -997,13 +1034,40 @@ class WastelandSoundEngine {
       osc.connect(filter);
       subOsc.connect(filter);
       filter.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(this.getEffectsOutput(ctx));
 
       osc.start(start);
       subOsc.start(start);
       osc.stop(start + note.duration + 0.03);
       subOsc.stop(start + note.duration + 0.03);
     }
+  }
+
+  public playMedicalSound(): void {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(329.63, now);
+    osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.25);
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(1200, now);
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.12, now + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.getEffectsOutput(ctx));
+
+    osc.start(now);
+    osc.stop(now + 0.36);
   }
 }
 

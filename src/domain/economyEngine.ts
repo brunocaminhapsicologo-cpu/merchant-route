@@ -4,6 +4,10 @@ import {
   ItemId,
   SettlementId,
   TerrainType,
+  TransportDefinition,
+  TransportId,
+  FreightContract,
+  PassengerContract,
 } from "./types";
 import { ITEMS, ROUTES, SETTLEMENTS, TRANSPORTS } from "./worldData";
 
@@ -38,8 +42,47 @@ export function getCurrentCargoWeightKg(
   return Math.round(total * 100) / 100;
 }
 
+export function getActiveTransportDefinition(state: GameState): TransportDefinition {
+  const activeIds = state.activeTransports?.length
+    ? state.activeTransports
+    : (state.activeFleet && state.activeFleet[state.transport]
+        ? (Object.keys(state.activeFleet) as TransportId[])
+        : [state.transport]);
+
+  const fleetUnits: TransportDefinition[] = [];
+  for (const id of activeIds) {
+    const def = TRANSPORTS[id];
+    if (def) {
+      const count = state.activeFleet?.[id] && state.activeFleet[id]! > 0 ? state.activeFleet[id]! : 1;
+      for (let i = 0; i < count; i++) {
+        fleetUnits.push(def);
+      }
+    }
+  }
+
+  const units = fleetUnits.length > 0 ? fleetUnits : [TRANSPORTS[state.transport]].filter(Boolean);
+
+  if (units.length <= 1) return units[0] ?? TRANSPORTS[state.transport];
+
+  const terrains = ["old_highway", "scorched_flats", "sand_dunes", "rocky_canyon"] as const;
+  const baseSpeed = Math.min(...units.map(u => u.baseSpeedKmh));
+  return {
+    ...units[0],
+    name: `Caravan Fleet (${units.length} units)`,
+    baseSpeedKmh: baseSpeed,
+    propulsion: units.some(u => u.propulsion === "motor") ? "motor" : units.some(u => u.propulsion === "animal") ? "animal" : "human",
+    maxCargoKg: units.reduce((n, u) => n + u.maxCargoKg, 0),
+    waterPerDay: units.reduce((n, u) => n + u.waterPerDay, 0),
+    foragePerDay: units.reduce((n, u) => n + u.foragePerDay, 0),
+    fuelLitersPer10Km: units.reduce((n, u) => n + u.fuelLitersPer10Km, 0),
+    terrainSpeedMultipliers: Object.fromEntries(
+      terrains.map(t => [t, Math.min(...units.map(u => u.baseSpeedKmh * u.terrainSpeedMultipliers[t])) / baseSpeed])
+    ) as TransportDefinition["terrainSpeedMultipliers"],
+  };
+}
+
 export function getMaxCargoCapacityKg(state: GameState): number {
-  const transportDef = TRANSPORTS[state.transport];
+  const transportDef = getActiveTransportDefinition(state);
   const personalBonus = state.attributes.grit * 6;
   return transportDef.maxCargoKg + personalBonus;
 }
@@ -51,14 +94,14 @@ export interface SpeedBreakdown {
   weightMultiplier: number;
   hasFuelIfMotor: boolean;
   loadRatio: number;
-  statusLabel: "Optimal" | "Heavy Load" | "Overloaded" | "Out of Fuel";
+  statusLabel: "Optimal" | "Heavy Load" | "Overloaded" | "Out of Fuel" | "Broken Down";
 }
 
 export function getCaravanSpeedBreakdown(
   state: GameState,
   terrain: TerrainType = "scorched_flats"
 ): SpeedBreakdown {
-  const transportDef = TRANSPORTS[state.transport];
+  const transportDef = getActiveTransportDefinition(state);
   const currentWeight = getCurrentCargoWeightKg(state.inventory);
   const maxCapacity = getMaxCargoCapacityKg(state);
   const loadRatio = maxCapacity > 0 ? currentWeight / maxCapacity : 1;
@@ -69,7 +112,7 @@ export function getCaravanSpeedBreakdown(
 
   if (!hasFuelIfMotor) {
     return {
-      effectiveSpeedKmh: 2.2,
+      effectiveSpeedKmh: 0,
       baseSpeedKmh: transportDef.baseSpeedKmh,
       terrainMultiplier: 1,
       weightMultiplier: 0.1,
@@ -99,11 +142,17 @@ export function getCaravanSpeedBreakdown(
   }
 
   const agilityTrailFactor = 1 + state.attributes.agility * 0.015;
+  const forageFactor = transportDef.foragePerDay > 0 && (state.inventory.animal_forage ?? 0) <= 0 ? 0.5 : 1;
+  const isBroken = state.isBrokenDown || (state.vehicleCondition !== undefined && state.vehicleCondition <= 0);
+  const conditionFactor = isBroken ? 0.5 : 1.0;
+  if (isBroken) statusLabel = "Broken Down";
   const rawSpeed =
     transportDef.baseSpeedKmh *
     terrainMultiplier *
     weightMultiplier *
-    agilityTrailFactor;
+    agilityTrailFactor *
+    forageFactor *
+    conditionFactor;
 
   return {
     effectiveSpeedKmh: Math.max(1.5, Math.round(rawSpeed * 10) / 10),
@@ -239,10 +288,13 @@ export function getDailyUpkeepSummary(state: GameState): {
   fuelPer10Km: number;
 } {
   const crewSize = 1 + state.hiredMercenaries.length;
-  const transportDef = TRANSPORTS[state.transport];
+  const passengerCount = (state.passengerContracts ?? [])
+    .filter(p => p.accepted && !p.completed)
+    .reduce((sum, p) => sum + p.passengerCount, 0);
+  const transportDef = getActiveTransportDefinition(state);
 
-  const humanWaterPerDay = crewSize * 2;
-  const humanFoodPerDay = crewSize * 1.5;
+  const humanWaterPerDay = (crewSize + passengerCount) * 2;
+  const humanFoodPerDay = (crewSize + passengerCount) * 1.5;
   const animalWaterPerDay = transportDef.waterPerDay;
   const animalForagePerDay = transportDef.foragePerDay;
 
@@ -263,3 +315,179 @@ export function getDailyUpkeepSummary(state: GameState): {
     fuelPer10Km: transportDef.fuelLitersPer10Km,
   };
 }
+
+export function repairCaravan(
+  state: GameState,
+  method: "tools" | "diesel_parts" | "depot"
+): { state: GameState; success: boolean; message: string } {
+  const currentCondition = state.vehicleCondition ?? 100;
+  if (currentCondition >= 100 && !state.isBrokenDown) {
+    return { state, success: false, message: "Caravan is already in peak operational condition." };
+  }
+
+  if (method === "tools") {
+    const count = state.inventory.tools ?? 0;
+    if (count <= 0) return { state, success: false, message: "No machinist tools available for roadside repair." };
+    const nextCondition = Math.min(100, currentCondition + 40);
+    return {
+      state: {
+        ...state,
+        vehicleCondition: nextCondition,
+        isBrokenDown: false,
+        inventory: { ...state.inventory, tools: count - 1 },
+        journalLogs: [`Roadside repairs completed using Machinist Tools. Condition restored to ${nextCondition}%.`, ...state.journalLogs].slice(0, 200),
+      },
+      success: true,
+      message: `Roadside repair successful (+40% condition). Current: ${nextCondition}%.`,
+    };
+  }
+
+  if (method === "diesel_parts") {
+    const count = state.inventory.diesel_parts ?? 0;
+    if (count <= 0) return { state, success: false, message: "No engine replacement parts available." };
+    const nextCondition = Math.min(100, currentCondition + 75);
+    return {
+      state: {
+        ...state,
+        vehicleCondition: nextCondition,
+        isBrokenDown: false,
+        inventory: { ...state.inventory, diesel_parts: count - 1 },
+        journalLogs: [`Replaced worn mechanical components with Diesel Engine Parts. Condition restored to ${nextCondition}%.`, ...state.journalLogs].slice(0, 200),
+      },
+      success: true,
+      message: `Mechanical overhaul successful (+75% condition). Current: ${nextCondition}%.`,
+    };
+  }
+
+  if (method === "depot") {
+    if (!state.currentSettlement) {
+      return { state, success: false, message: "Depot overhaul requires being docked at a settlement." };
+    }
+    const cost = 50;
+    if (state.cash < cost) {
+      return { state, success: false, message: `Depot maintenance requires $${cost}.` };
+    }
+    return {
+      state: {
+        ...state,
+        cash: state.cash - cost,
+        vehicleCondition: 100,
+        isBrokenDown: false,
+        operatingCosts: (state.operatingCosts ?? 0) + cost,
+        journalLogs: [`Depot engineers serviced the caravan fleet. Restored to 100% condition for $${cost}.`, ...state.journalLogs].slice(0, 200),
+      },
+      success: true,
+      message: "Full depot service completed (100% condition).",
+    };
+  }
+
+  return { state, success: false, message: "Unknown repair method." };
+}
+
+export function generateAvailableContracts(
+  settlementId: SettlementId,
+  currentDay: number
+): { freight: FreightContract[]; passengers: PassengerContract[] } {
+  const towns = (Object.keys(SETTLEMENTS) as SettlementId[]).filter(id => id !== settlementId);
+  const targetA = towns[Math.floor(towns.length * 0.25)] ?? "saint_louis";
+  const targetB = towns[Math.floor(towns.length * 0.75)] ?? "deadwood_gulch";
+
+  const freight: FreightContract[] = [
+    {
+      id: `freight_${settlementId}_${currentDay}_1`,
+      title: `Emergency Water Relief to ${SETTLEMENTS[targetA].name}`,
+      originSettlement: settlementId,
+      destinationSettlement: targetA,
+      cargoItem: "water",
+      cargoQuantity: 10,
+      rewardCash: 160,
+      deadlineDay: currentDay + 7,
+      accepted: false,
+      completed: false,
+    },
+    {
+      id: `freight_${settlementId}_${currentDay}_2`,
+      title: `Industrial Smelted Scrap Shipment to ${SETTLEMENTS[targetB].name}`,
+      originSettlement: settlementId,
+      destinationSettlement: targetB,
+      cargoItem: "scrap_metal",
+      cargoQuantity: 5,
+      rewardCash: 280,
+      deadlineDay: currentDay + 10,
+      accepted: false,
+      completed: false,
+    },
+  ];
+
+  const passengers: PassengerContract[] = [
+    {
+      id: `passenger_${settlementId}_${currentDay}_1`,
+      passengerName: "Frontier Doctor & Medic Team",
+      originSettlement: settlementId,
+      destinationSettlement: targetA,
+      passengerCount: 2,
+      rewardCash: 220,
+      deadlineDay: currentDay + 8,
+      accepted: false,
+      completed: false,
+      waterDemandPerDay: 4,
+      foodDemandPerDay: 3,
+    },
+  ];
+
+  return { freight, passengers };
+}
+
+export function completeContractsAtSettlement(
+  state: GameState,
+  settlementId: SettlementId
+): { state: GameState; completedFreight: FreightContract[]; completedPassengers: PassengerContract[]; totalPayout: number } {
+  let cashEarned = 0;
+  let repGained = 0;
+  const completedFreight: FreightContract[] = [];
+  const completedPassengers: PassengerContract[] = [];
+  const inventory = { ...state.inventory };
+  const logs: string[] = [];
+
+  const updatedFreight = (state.freightContracts ?? []).map(fc => {
+    if (fc.accepted && !fc.completed && fc.destinationSettlement === settlementId) {
+      const carried = inventory[fc.cargoItem] ?? 0;
+      if (carried >= fc.cargoQuantity) {
+        inventory[fc.cargoItem] = carried - fc.cargoQuantity;
+        cashEarned += fc.rewardCash;
+        repGained += 5;
+        completedFreight.push(fc);
+        logs.push(`Freight Contract Delivered: Delivered ${fc.cargoQuantity}x ${ITEMS[fc.cargoItem].name} to ${SETTLEMENTS[settlementId].name} (+$${fc.rewardCash}).`);
+        return { ...fc, completed: true };
+      }
+    }
+    return fc;
+  });
+
+  const updatedPassengers = (state.passengerContracts ?? []).map(pc => {
+    if (pc.accepted && !pc.completed && pc.destinationSettlement === settlementId) {
+      cashEarned += pc.rewardCash;
+      repGained += 4;
+      completedPassengers.push(pc);
+      logs.push(`Passenger Escort Complete: ${pc.passengerName} arrived safely at ${SETTLEMENTS[settlementId].name} (+$${pc.rewardCash}).`);
+      return { ...pc, completed: true };
+    }
+    return pc;
+  });
+
+  return {
+    state: {
+      ...state,
+      cash: state.cash + cashEarned,
+      reputation: state.reputation + repGained,
+      inventory,
+      freightContracts: updatedFreight,
+      passengerContracts: updatedPassengers,
+      journalLogs: [...logs, ...state.journalLogs].slice(0, 200),
+    },
+    completedFreight,
+    completedPassengers,
+    totalPayout: cashEarned,
+  };
+}
+

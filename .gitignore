@@ -10,3 +10,8 @@ Thumbs.db
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+release/
+release-final/
+.desktop-build/
+propostas_visuais.html
+public/mockups/

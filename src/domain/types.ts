@@ -209,6 +209,8 @@ export interface BountyContract {
 }
 
 export interface Mercenary {
+  crippledLegs?: boolean;
+  magazines?: Partial<Record<WeaponId, number>>;
   id: string;
   name: string;
   roleTitle: string;
@@ -221,6 +223,16 @@ export interface Mercenary {
   accuracyBonus: number;
   equippedWeapon: WeaponId;
   bio: string;
+}
+
+export interface ExplorationState {
+  x: number;
+  y: number;
+  heading: number;
+  isMoving: boolean;
+  isPaused: boolean;
+  terrain: TerrainType;
+  distanceTravelledKm: number;
 }
 
 export interface ActiveTravelState {
@@ -268,6 +280,7 @@ export interface CombatGridTile {
   cover: TileCoverType;
   moveApCost: number;
   defenseBonus: number; // 0, 25, or 45 (% reduction to incoming hit chance)
+  coverDirection?: "north" | "south" | "east" | "west";
 }
 
 export type FiringMode = "melee" | "snap" | "aimed" | "headshot" | "legshot";
@@ -286,6 +299,8 @@ export interface CombatUnit {
   maxAp: number;
   weapon: WeaponId;
   currentMagAmmo: number;
+  reserveAmmo?: number;
+  magazines?: Partial<Record<WeaponId, number>>;
   accuracy: number;
   morale: number; // 0 to 100; if < 25 may flee
   isFled?: boolean;
@@ -306,7 +321,63 @@ export interface CombatState {
   outcome: "ongoing" | "victory" | "defeat";
 }
 
+export interface FreightContract {
+  id: string;
+  title: string;
+  originSettlement: SettlementId;
+  destinationSettlement: SettlementId;
+  cargoItem: ItemId;
+  cargoQuantity: number;
+  rewardCash: number;
+  deadlineDay: number;
+  accepted: boolean;
+  completed: boolean;
+}
+
+export interface PassengerContract {
+  id: string;
+  passengerName: string;
+  originSettlement: SettlementId;
+  destinationSettlement: SettlementId;
+  passengerCount: number;
+  rewardCash: number;
+  deadlineDay: number;
+  accepted: boolean;
+  completed: boolean;
+  waterDemandPerDay: number;
+  foodDemandPerDay: number;
+}
+
+export interface RovingEntity {
+  id: string;
+  name: string;
+  type: "trader" | "sheriff_patrol" | "raider";
+  x: number;
+  y: number;
+  targetX: number;
+  targetY: number;
+  speedKmh: number;
+  heading: number;
+  description: string;
+}
+
+export interface SecretLocation {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  description: string;
+  lootItems: Partial<Record<ItemId, number>>;
+  lootCash: number;
+}
+
 export interface GameState {
+  exploration?: ExplorationState;
+  saveVersion?: number;
+  weaponMagazines?: Partial<Record<WeaponId, number>>;
+  acceptedBountyIds?: string[];
+  tradeLedger?: Array<{ itemId: ItemId; quantity: number; unitPrice: number; kind: "buy" | "sell"; day: number; settlementId: SettlementId; profit?: number }>;
+  averageCosts?: Partial<Record<ItemId, number>>;
   playerName: string;
   attributes: CharacterAttributes;
   unspentAttributePoints: number;
@@ -320,11 +391,21 @@ export interface GameState {
   lastVisitedSettlement: SettlementId;
   transport: TransportId;
   ownedTransports: TransportId[];
+  activeTransports?: TransportId[];
+  activeFleet?: Partial<Record<TransportId, number>>;
+  vehicleCondition?: number;
+  isBrokenDown?: boolean;
+  operatingCosts?: number;
   inventory: Partial<Record<ItemId, number>>;
   townStocks: Record<SettlementId, Partial<Record<ItemId, number>>>;
   marketEvents: MarketEvent[];
   knownRumorIds: string[];
   bounties: BountyContract[];
+  freightContracts?: FreightContract[];
+  passengerContracts?: PassengerContract[];
+  rovingEntities?: RovingEntity[];
+  discoveredSecretIds?: string[];
+  clearedSecretIds?: string[];
   hiredMercenaries: Mercenary[];
   travelState: ActiveTravelState | null;
   pendingEncounter: RoadEncounter | null;

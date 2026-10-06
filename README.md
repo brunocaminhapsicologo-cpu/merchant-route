@@ -25,7 +25,7 @@ After burying your grandfather outside the humble frontier settlement of **Dust 
 - **Desktop Executable (`.exe`):** Double-click `MerchantRoute.exe` in the project root.
 - **Development Server:**
   ```bash
-  npm install
+  npm ci
   npm run dev
   ```
 - **Run Unit Tests & Build:**
@@ -33,3 +33,18 @@ After burying your grandfather outside the humble frontier settlement of **Dust 
   npm test
   npm run build
   ```
+
+## Version 1.1 — Compass travel and town scenes
+
+The offline Windows executable includes the game and runtime. The earlier web launcher is preserved under `desktop/MerchantRoute-WebLauncher-original.exe`.
+
+- World atlas: measure the distance and bearing to a settlement.
+- Travel & compass: enter the bearing manually, start/stop movement, change course and camp. North is 0 degrees, east 90, south 180, west 270. The atlas does not steer your caravan.
+- Town & shops: stop near a city, enter it, then choose a building on the overhead town map. Shops have their own interiors and NPCs.
+- Combat: moving units slide between tiles; hits trigger recoil and damage feedback. Select an enemy and confirm an attack. Enemy actions happen sequentially.
+- Caravan & cargo: deploy owned transports together while in town; review supplies and the trade ledger.
+- Saves: automatic device saves, JSON export/import and migration of earlier saves. Export from the old web game and import in the offline edition when changing origins.
+
+To serve the exported game: `npm run build`, then `npm start`. To rebuild the portable Windows executable: `npm run package:win` (output in `release-final/`).
+
+Implementation details, validation and remaining roadmap work are recorded in `docs/IMPLEMENTACAO_1_1.md`.

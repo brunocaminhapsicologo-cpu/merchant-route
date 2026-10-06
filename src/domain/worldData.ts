@@ -10,6 +10,8 @@ import {
   SettlementId,
   TransportDefinition,
   TransportId,
+  RovingEntity,
+  SecretLocation,
 } from "./types";
 
 export const ITEMS: Record<ItemId, ItemDefinition> = {
@@ -1108,7 +1110,7 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
     tier: "frontier_town",
     subtitle: "Old West Frontier Livestock & Leather Hub",
     lore: "Built around an old stone railway bridge and sprawling brahmin corrals, Tombstone Crossing is the rowdiest cowtown in the southwest. Vaqueros and gunfighters pack Stockyard Canned Beef, Cured Leather, and Oak Whiskey, while paying top dollar for Salt, Water, and .45 Colt brass.",
-    coordinates: { x: 300, y: 760 },
+    coordinates: { x: 300, y: 620 },
     produces: ["canned_beef", "raw_leather", "whiskey_barrel", "animal_forage"],
     demands: ["water", "salt", "tools", "antibiotics", "ammo_45"],
     priceMultipliers: {
@@ -1377,7 +1379,7 @@ export const SETTLEMENTS: Record<SettlementId, SettlementDefinition> = {
     tier: "major_city",
     subtitle: "Major US Industrial & Rail Metropolis",
     lore: "Anchored around steel blast furnaces, armored rail yards, and Lake Michigan wind turbines, New Chicago is an industrial powerhouse. Union machinists manufacture Precision Engine Parts, Pump Shotguns, and 9mm Grease Guns, while importing tons of Canned Beef, Copper Ore, Gasoline, and Oak Whiskey.",
-    coordinates: { x: 880, y: 790 },
+    coordinates: { x: 880, y: 650 },
     produces: [
       "diesel_parts",
       "tools",
@@ -1795,6 +1797,75 @@ export const AVAILABLE_MERCENARIES: Mercenary[] = [
   },
 ];
 
+export const SECRET_LOCATIONS: SecretLocation[] = [
+  {
+    id: "abandoned_mine",
+    name: "Old Uranium Prospect Mine",
+    x: 520,
+    y: 180,
+    description: "A forgotten tunnel containing smelted ingots and mechanical tools.",
+    lootItems: { scrap_metal: 8, tools: 2 },
+    lootCash: 150,
+  },
+  {
+    id: "canyon_cache",
+    name: "Smuggler's Canyon Cache",
+    x: 480,
+    y: 440,
+    description: "A hidden crate concealed under desert brush with rifle ammo and a weapon.",
+    lootItems: { ammo_308: 20, bolt_rifle_308: 1 },
+    lootCash: 200,
+  },
+  {
+    id: "radioactive_oasis",
+    name: "Sunken Chemical Cistern",
+    x: 720,
+    y: 260,
+    description: "Filtered cistern reservoirs preserving clean water and pre-war medical supplies.",
+    lootItems: { water: 12, antibiotics: 3 },
+    lootCash: 90,
+  },
+];
+
+export const INITIAL_ROVING_ENTITIES: RovingEntity[] = [
+  {
+    id: "caravan_red_rock",
+    name: "Red Rock Guild Merchant",
+    type: "trader",
+    x: 200,
+    y: 420,
+    targetX: 320,
+    targetY: 340,
+    speedKmh: 6.5,
+    heading: 60,
+    description: "A well-laden trading convoy carrying grain and tanned leather.",
+  },
+  {
+    id: "patrol_county_sheriff",
+    name: "County Sheriff Outriders",
+    type: "sheriff_patrol",
+    x: 450,
+    y: 350,
+    targetX: 520,
+    targetY: 210,
+    speedKmh: 9.0,
+    heading: 30,
+    description: "Armed deputies policing the trade arteries between Leadville and Blackwater.",
+  },
+  {
+    id: "raiders_asphalt_jackals",
+    name: "Asphalt Jackal Scout Buggy",
+    type: "raider",
+    x: 650,
+    y: 400,
+    targetX: 740,
+    targetY: 480,
+    speedKmh: 12.0,
+    heading: 120,
+    description: "Spike-armored scout buggy scoping out isolated wagons.",
+  },
+];
+
 export function createInitialGameState(): GameState {
   const initialTownStocks: Record<SettlementId, Partial<Record<ItemId, number>>> = {
     dust_creek: { ...SETTLEMENTS.dust_creek.baseStock },
@@ -1808,6 +1879,9 @@ export function createInitialGameState(): GameState {
   };
 
   return {
+    saveVersion: 3,
+    weaponMagazines: {},
+    exploration: { x: 140, y: 480, heading: 0, isMoving: false, isPaused: true, terrain: "scorched_flats", distanceTravelledKm: 0 },
     playerName: "Arthur Morgan Jr.",
     attributes: {
       grit: 4,
@@ -1826,6 +1900,14 @@ export function createInitialGameState(): GameState {
     lastVisitedSettlement: "dust_creek",
     transport: "old_donkey", // Grandfather's Pack Donkey
     ownedTransports: ["on_foot", "old_donkey"],
+    activeFleet: { old_donkey: 1 },
+    vehicleCondition: 100,
+    isBrokenDown: false,
+    freightContracts: [],
+    passengerContracts: [],
+    rovingEntities: [...INITIAL_ROVING_ENTITIES],
+    discoveredSecretIds: [],
+    clearedSecretIds: [],
     inventory: {
       bolt_rifle_308: 1, // Grandfather's old rifle
       rusty_machete: 1, // Backup melee blade

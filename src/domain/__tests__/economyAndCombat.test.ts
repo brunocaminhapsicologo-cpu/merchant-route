@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateShotPreview,
   generateRoadEncounter,
-  initializeTacticalCombat,
+  initializeCombatWithAmmo,
 } from "../combatEngine";
 import {
   getCaravanSpeedBreakdown,
@@ -132,7 +132,7 @@ describe("Merchant Route — Domain Economy, Logistics & Combat Engine", () => {
   it("initializes top-down tactical combat with AP and calculates Snap, Aimed, Headshot, Legshot & Crouch modifiers", () => {
     const state = createInitialGameState();
     const encounter = generateRoadEncounter(state, ROUTES[0]);
-    const combat = initializeTacticalCombat(state, encounter);
+    const combat = initializeCombatWithAmmo(state, encounter).combatState!;
 
     const playerUnit = combat.units.find((u) => u.id === "unit_player")!;
     const enemyUnit = combat.units.find((u) => !u.isPlayerTeam)!;
