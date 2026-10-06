@@ -351,7 +351,7 @@ export interface PassengerContract {
 export interface RovingEntity {
   id: string;
   name: string;
-  type: "trader" | "sheriff_patrol" | "raider";
+  type: "trader" | "traveler" | "sheriff_patrol" | "raider";
   x: number;
   y: number;
   targetX: number;
@@ -359,6 +359,9 @@ export interface RovingEntity {
   speedKmh: number;
   heading: number;
   description: string;
+  transportLabel?: string;
+  routeMode?: "road" | "offroad";
+  partySize?: number;
 }
 
 export interface SecretLocation {

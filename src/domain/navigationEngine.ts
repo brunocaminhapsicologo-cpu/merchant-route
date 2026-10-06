@@ -53,6 +53,18 @@ export function getNearbySettlement(position: Position): SettlementId | null {
   return nearest && nearest.d <= 12 * WORLD_KM_PER_UNIT + 1e-9 ? nearest.town.id : null;
 }
 
+const OFFROAD_WAYPOINTS: Position[] = [
+  { x: 185, y: 415 },
+  { x: 255, y: 345 },
+  { x: 295, y: 495 },
+  { x: 435, y: 275 },
+  { x: 475, y: 485 },
+  { x: 545, y: 365 },
+  { x: 615, y: 305 },
+  { x: 695, y: 465 },
+  { x: 395, y: 445 },
+];
+
 export function advanceRovingEntities(entities: RovingEntity[], hours: number): RovingEntity[] {
   return entities.map(entity => {
     const dx = entity.targetX - entity.x;
@@ -61,22 +73,41 @@ export function advanceRovingEntities(entities: RovingEntity[], hours: number): 
     const speed = entity.speedKmh / WORLD_KM_PER_UNIT;
     const step = speed * hours;
 
-    if (dist <= step || dist < 6) {
-      const allTowns = Object.values(SETTLEMENTS);
-      const randomTown = allTowns[Math.floor(Math.random() * allTowns.length)];
+    if (dist <= step || dist < 4) {
+      let nextTarget: Position;
+      if (entity.routeMode === "offroad") {
+        const candidates = OFFROAD_WAYPOINTS.filter(
+          wp => Math.hypot(wp.x - entity.targetX, wp.y - entity.targetY) > 45
+        );
+        nextTarget = candidates[Math.floor(Math.random() * candidates.length)] ?? OFFROAD_WAYPOINTS[0];
+      } else {
+        const allTowns = Object.values(SETTLEMENTS);
+        const nearestTown = [...allTowns].sort(
+          (a, b) =>
+            Math.hypot(a.coordinates.x - entity.targetX, a.coordinates.y - entity.targetY) -
+            Math.hypot(b.coordinates.x - entity.targetX, b.coordinates.y - entity.targetY)
+        )[0];
+        const connectedIds = ROUTES.flatMap(r =>
+          r.from === nearestTown.id ? [r.to] : r.to === nearestTown.id ? [r.from] : []
+        );
+        const nextTownId = connectedIds[Math.floor(Math.random() * connectedIds.length)];
+        const chosenTown = nextTownId ? SETTLEMENTS[nextTownId] : allTowns[Math.floor(Math.random() * allTowns.length)];
+        nextTarget = chosenTown.coordinates;
+      }
+
       return {
         ...entity,
         x: entity.targetX,
         y: entity.targetY,
-        targetX: randomTown.coordinates.x,
-        targetY: randomTown.coordinates.y,
-        heading: getBearing({ x: entity.targetX, y: entity.targetY }, randomTown.coordinates),
+        targetX: nextTarget.x,
+        targetY: nextTarget.y,
+        heading: getBearing({ x: entity.targetX, y: entity.targetY }, nextTarget),
       };
     }
 
     const ratio = step / dist;
-    const nextX = Math.round(entity.x + dx * ratio);
-    const nextY = Math.round(entity.y + dy * ratio);
+    const nextX = entity.x + dx * ratio;
+    const nextY = entity.y + dy * ratio;
     return {
       ...entity,
       x: nextX,

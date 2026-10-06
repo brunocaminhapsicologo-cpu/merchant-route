@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { soundEngine, WeaponSoundCategory } from "@/assets/soundEngine";
 import { StrategicWorldMap, TravelScreen } from "@/components/WayfindingPanels";
 import { TradeLedger } from "@/components/TradeLedger";
-import { advanceExploration, advanceGameTime, scavengeSecretLocation, getNearbySettlement, getTerrainAt, getWorldPosition, stepExploration } from "@/domain/navigationEngine";
+import { advanceExploration, advanceGameTime, advanceRovingEntities, getBearing, scavengeSecretLocation, getNearbySettlement, getTerrainAt, getWorldPosition } from "@/domain/navigationEngine";
 import { performEnemyAction } from "@/domain/combatActions";
 import { migrateGameState } from "@/domain/saveGame";
 import { PreCombatEncounterModal } from "@/components/PreCombatEncounterModal";
@@ -39,6 +39,7 @@ import {
   FiringMode,
   GameState,
   ItemId,
+  RovingEntity,
   SettlementId,
   TransportId,
   WeaponId,
@@ -191,41 +192,147 @@ export default function MerchantRouteGamePage() {
     }
   }, [state, isHydrated]);
 
-  // One authoritative time/resource calculation drives free compass travel.
+  const glideHoursRef = useRef<number>(0);
+  const glideTargetRef = useRef<{ x: number; y: number } | null>(null);
+  const lastSoundTickRef = useRef<number>(0);
+
+  // Smooth 50ms (20 FPS) simulation loop for fluid caravan movement (no sudden step jumps).
   useEffect(() => {
     if (!isHydrated || !state.exploration?.isMoving || state.exploration.isPaused || state.pendingEncounter || state.combatState) return;
     const timer = window.setInterval(() => {
       setState(prev => {
         if (!prev.exploration?.isMoving || prev.exploration.isPaused || prev.pendingEncounter || prev.combatState) return prev;
-        const hours = .25 * travelRate;
-        const next = advanceExploration(prev, hours);
-        if (!next.exploration?.isMoving) return next;
+        let current = prev;
+        const target = glideTargetRef.current;
+        if (target) {
+          const curPos = getWorldPosition(current);
+          const distToTarget = Math.hypot(target.x - curPos.x, target.y - curPos.y);
+          if (distToTarget <= 3.5) {
+            glideTargetRef.current = null;
+            return {
+              ...current,
+              exploration: { ...current.exploration!, isMoving: false, isPaused: true },
+            };
+          }
+          const nextBearing = getBearing(curPos, target);
+          current = {
+            ...current,
+            exploration: { ...current.exploration!, heading: nextBearing },
+          };
+        }
+
+        const hours = (0.25 / 16) * travelRate;
+        let next = advanceExploration(current, hours);
+        if (!next.exploration?.isMoving) {
+          glideHoursRef.current = 0;
+          glideTargetRef.current = null;
+          return next;
+        }
+
+        if (glideHoursRef.current > 0) {
+          glideHoursRef.current = Math.max(0, glideHoursRef.current - hours);
+          if (glideHoursRef.current <= 1e-6) {
+            glideHoursRef.current = 0;
+            next = {
+              ...next,
+              exploration: { ...next.exploration!, isMoving: false, isPaused: true },
+            };
+          }
+        }
+
         const position = getWorldPosition(next);
-        // Encounters depend on the terrain and actual elapsed time, not render frequency.
-        const nearRoute = [...ROUTES].sort((a,b) => {
-          const midpoint = (r: typeof a) => ({x:(SETTLEMENTS[r.from].coordinates.x+SETTLEMENTS[r.to].coordinates.x)/2,y:(SETTLEMENTS[r.from].coordinates.y+SETTLEMENTS[r.to].coordinates.y)/2});
-          const da=midpoint(a), db=midpoint(b);
-          return Math.hypot(position.x-da.x,position.y-da.y)-Math.hypot(position.x-db.x,position.y-db.y);
+        const nearRoute = [...ROUTES].sort((a, b) => {
+          const midpoint = (r: typeof a) => ({
+            x: (SETTLEMENTS[r.from].coordinates.x + SETTLEMENTS[r.to].coordinates.x) / 2,
+            y: (SETTLEMENTS[r.from].coordinates.y + SETTLEMENTS[r.to].coordinates.y) / 2,
+          });
+          const da = midpoint(a), db = midpoint(b);
+          return Math.hypot(position.x - da.x, position.y - da.y) - Math.hypot(position.x - db.x, position.y - db.y);
         })[0];
+
+        // Check if a roving raider caravan intercepted the player on the map
+        const interceptingRaider = (next.rovingEntities ?? []).find(
+          e => e.type === "raider" && Math.hypot(e.x - position.x, e.y - position.y) <= 13
+        );
+        if (interceptingRaider && !getNearbySettlement(position)) {
+          glideHoursRef.current = 0;
+          glideTargetRef.current = null;
+          const baseEncounter = generateRoadEncounter(
+            { ...next, bounties: next.bounties.filter(b => (next.acceptedBountyIds ?? []).includes(b.id)) },
+            nearRoute
+          );
+          const customEncounter = {
+            ...baseEncounter,
+            title: interceptingRaider.name,
+            enemyGroupName: interceptingRaider.name,
+            enemySpeedKmh: interceptingRaider.speedKmh,
+            description: interceptingRaider.description,
+          };
+          const pushedEntities = (next.rovingEntities ?? []).map(e =>
+            e.id === interceptingRaider.id
+              ? { ...e, x: Math.max(40, Math.min(960, e.x + 55)), y: Math.max(40, Math.min(640, e.y - 45)) }
+              : e
+          );
+          return {
+            ...next,
+            rovingEntities: pushedEntities,
+            exploration: { ...next.exploration!, isMoving: false, isPaused: true },
+            pendingEncounter: customEncounter,
+            journalLogs: [`Abordado por caravana hostil: ${customEncounter.title}`, ...next.journalLogs].slice(0, 60),
+          };
+        }
+
         const secured = prev.bounties.some(b => b.routeId === nearRoute.id && b.completed);
-        const chance = Math.max(.015, .055 + nearRoute.dangerLevel*.018-prev.attributes.perception*.005) * hours * (secured ? .45 : 1);
-        if (Math.random() < chance) {
-          const encounter = generateRoadEncounter({...next,bounties:next.bounties.filter(b => (next.acceptedBountyIds??[]).includes(b.id))},nearRoute);
-          return {...next,pendingEncounter:encounter,journalLogs:[`Road encounter: ${encounter.title}`, ...next.journalLogs].slice(0,60)};
+        const chance = Math.max(0.015, 0.055 + nearRoute.dangerLevel * 0.018 - prev.attributes.perception * 0.005) * hours * (secured ? 0.45 : 1);
+        if (!getNearbySettlement(position) && Math.random() < chance) {
+          glideHoursRef.current = 0;
+          glideTargetRef.current = null;
+          const encounter = generateRoadEncounter(
+            { ...next, bounties: next.bounties.filter(b => (next.acceptedBountyIds ?? []).includes(b.id)) },
+            nearRoute
+          );
+          return {
+            ...next,
+            exploration: { ...next.exploration!, isMoving: false, isPaused: true },
+            pendingEncounter: encounter,
+            journalLogs: [`Road encounter: ${encounter.title}`, ...next.journalLogs].slice(0, 60),
+          };
         }
         return next;
       });
-    },900);
+    }, 50);
     return () => window.clearInterval(timer);
-  },[isHydrated,state.exploration?.isMoving,state.exploration?.isPaused,state.pendingEncounter,state.combatState,travelRate]);
+  }, [isHydrated, state.exploration?.isMoving, state.exploration?.isPaused, state.pendingEncounter, state.combatState, travelRate]);
+
+  // Ambient smooth movement for roving caravans even while player is observing the map/travel screen.
+  useEffect(() => {
+    if (!isHydrated || state.pendingEncounter || state.combatState) return;
+    if (state.exploration?.isMoving && !state.exploration.isPaused) return;
+    if (activeTab !== "travel" && activeTab !== "map") return;
+    const ambientTimer = window.setInterval(() => {
+      setState(prev => {
+        if (!prev.rovingEntities || prev.rovingEntities.length === 0) return prev;
+        if (prev.exploration?.isMoving && !prev.exploration.isPaused) return prev;
+        return {
+          ...prev,
+          rovingEntities: advanceRovingEntities(prev.rovingEntities, 0.012 * travelRate),
+        };
+      });
+    }, 65);
+    return () => window.clearInterval(ambientTimer);
+  }, [isHydrated, activeTab, state.exploration?.isMoving, state.exploration?.isPaused, state.pendingEncounter, state.combatState, travelRate]);
 
   useEffect(() => {
     if (state.pendingEncounter) soundEngine.playEncounterAlert();
-  },[state.pendingEncounter?.id]);
+  }, [state.pendingEncounter?.id]);
   useEffect(() => {
     if (!state.exploration?.isMoving || state.pendingEncounter || state.combatState) return;
-    soundEngine.playTravelTick(TRANSPORTS[state.transport].propulsion);
-  },[state.exploration?.x,state.exploration?.y,state.transport]);
+    const now = Date.now();
+    if (now - lastSoundTickRef.current >= 420) {
+      lastSoundTickRef.current = now;
+      soundEngine.playTravelTick(TRANSPORTS[state.transport].propulsion);
+    }
+  }, [state.exploration?.x, state.exploration?.y, state.transport]);
 
   const handleHeading = (heading: number) => setState(prev => {
     const pos = getWorldPosition(prev);
@@ -243,40 +350,110 @@ export default function MerchantRouteGamePage() {
   const handleStepMovement = () => {
     if (state.pendingEncounter || state.combatState) return;
     if (getActiveTransportDefinition(state).propulsion === "motor" && (state.inventory.gasoline ?? 0) <= 0) {
-      setNotice("No gasoline. Refill in town or switch to a non-motor transport before departing.");
+      setNotice("Sem gasolina. Reabasteça na cidade ou troque de veículo antes de partir.");
       return;
     }
-    soundEngine.playTravelTick(TRANSPORTS[state.transport].propulsion);
+    glideTargetRef.current = null;
+    glideHoursRef.current = 0.85 * travelRate;
     setState(prev => {
-      if (prev.pendingEncounter || prev.combatState) return prev;
-      const hours = 0.75 * travelRate;
-      const next = stepExploration(prev, hours);
-      const prevPos = getWorldPosition(prev);
-      const nextPos = getWorldPosition(next);
-      const movedDist = Math.hypot(nextPos.x - prevPos.x, nextPos.y - prevPos.y);
-      if (movedDist < 1e-4) return next;
+      const pos = getWorldPosition(prev);
+      return {
+        ...prev,
+        currentSettlement: null,
+        travelState: null,
+        exploration: {
+          x: pos.x,
+          y: pos.y,
+          heading: 0,
+          terrain: getTerrainAt(pos),
+          distanceTravelledKm: 0,
+          ...prev.exploration,
+          isMoving: true,
+          isPaused: false,
+        },
+      };
+    });
+  };
+  const handleGlideToPoint = (targetX: number, targetY: number) => {
+    if (state.pendingEncounter || state.combatState) return;
+    if (getActiveTransportDefinition(state).propulsion === "motor" && (state.inventory.gasoline ?? 0) <= 0) {
+      setNotice("Sem gasolina. Reabasteça na cidade ou troque de veículo antes de partir.");
+      return;
+    }
+    glideHoursRef.current = 0;
+    glideTargetRef.current = { x: targetX, y: targetY };
+    setState(prev => {
+      const pos = getWorldPosition(prev);
+      const bearing = getBearing(pos, { x: targetX, y: targetY });
+      return {
+        ...prev,
+        currentSettlement: null,
+        travelState: null,
+        exploration: {
+          x: pos.x,
+          y: pos.y,
+          terrain: getTerrainAt(pos),
+          distanceTravelledKm: 0,
+          ...prev.exploration,
+          heading: bearing,
+          isMoving: true,
+          isPaused: false,
+        },
+      };
+    });
+  };
+  const handleTriggerHostileEncounterFromCaravan = (entity: RovingEntity) => {
+    setState(prev => {
+      const position = getWorldPosition(prev);
       const nearRoute = [...ROUTES].sort((a, b) => {
         const midpoint = (r: typeof a) => ({
           x: (SETTLEMENTS[r.from].coordinates.x + SETTLEMENTS[r.to].coordinates.x) / 2,
           y: (SETTLEMENTS[r.from].coordinates.y + SETTLEMENTS[r.to].coordinates.y) / 2,
         });
         const da = midpoint(a), db = midpoint(b);
-        return Math.hypot(nextPos.x - da.x, nextPos.y - da.y) - Math.hypot(nextPos.x - db.x, nextPos.y - db.y);
+        return Math.hypot(position.x - da.x, position.y - da.y) - Math.hypot(position.x - db.x, position.y - db.y);
       })[0];
-      const secured = prev.bounties.some(b => b.routeId === nearRoute.id && b.completed);
-      const chance = Math.max(0.015, 0.055 + nearRoute.dangerLevel * 0.018 - prev.attributes.perception * 0.005) * hours * (secured ? 0.45 : 1);
-      if (!getNearbySettlement(nextPos) && Math.random() < chance) {
-        const encounter = generateRoadEncounter(
-          { ...next, bounties: next.bounties.filter(b => (next.acceptedBountyIds ?? []).includes(b.id)) },
-          nearRoute
-        );
-        return {
-          ...next,
-          pendingEncounter: encounter,
-          journalLogs: [`Road encounter: ${encounter.title}`, ...next.journalLogs].slice(0, 60),
-        };
-      }
-      return next;
+      const baseEncounter = generateRoadEncounter(prev, nearRoute);
+      const customEncounter = {
+        ...baseEncounter,
+        title: entity.name,
+        enemyGroupName: entity.name,
+        enemySpeedKmh: entity.speedKmh,
+        description: entity.description,
+      };
+      return {
+        ...prev,
+        pendingEncounter: customEncounter,
+        journalLogs: [`Engajou bando na rota: ${entity.name}`, ...prev.journalLogs].slice(0, 60),
+      };
+    });
+  };
+  const handleRoadTradeBuy = (itemId: ItemId, price: number) => {
+    setState(prev => {
+      if (prev.cash < price) return prev;
+      return {
+        ...prev,
+        cash: prev.cash - price,
+        inventory: {
+          ...prev.inventory,
+          [itemId]: (prev.inventory[itemId] ?? 0) + 1,
+        },
+        journalLogs: [`Comprou 1× ${ITEMS[itemId].name} de uma caravana mercante na estrada por $${price}.`, ...prev.journalLogs].slice(0, 60),
+      };
+    });
+  };
+  const handleShareWaterWithTraveler = () => {
+    setState(prev => {
+      if ((prev.inventory.water ?? 0) < 1) return prev;
+      return {
+        ...prev,
+        reputation: prev.reputation + 2,
+        inventory: {
+          ...prev.inventory,
+          water: Math.max(0, (prev.inventory.water ?? 0) - 1),
+        },
+        journalLogs: [`Compartilhou 1L de água com viajantes na trilha (+2 Reputação).`, ...prev.journalLogs].slice(0, 60),
+      };
     });
   };
   const finalizeEnterSettlement = (id: SettlementId, inspectionResult?: { seized?: boolean; fine?: number; bribe?: number; surrendered?: boolean }) => {
@@ -1593,6 +1770,9 @@ export default function MerchantRouteGamePage() {
               onStepMove={handleStepMovement}
               onEnter={handleEnterSettlement}
               onScavenge={handleScavengeSecret}
+              onTriggerHostileEncounter={handleTriggerHostileEncounterFromCaravan}
+              onRoadTradeBuy={handleRoadTradeBuy}
+              onShareWaterWithTraveler={handleShareWaterWithTraveler}
             />
           )}
 
@@ -1604,12 +1784,16 @@ export default function MerchantRouteGamePage() {
               onHeading={handleHeading}
               onMove={handleToggleMovement}
               onStepMove={handleStepMovement}
+              onGlideToPoint={handleGlideToPoint}
               onEnter={handleEnterSettlement}
               onCamp={handleCamp}
               rate={travelRate}
               onRate={setTravelRate}
               onScavenge={handleScavengeSecret}
               onRepair={handleRepairCaravan}
+              onTriggerHostileEncounter={handleTriggerHostileEncounterFromCaravan}
+              onRoadTradeBuy={handleRoadTradeBuy}
+              onShareWaterWithTraveler={handleShareWaterWithTraveler}
             />
           )}
 
@@ -1983,44 +2167,61 @@ export default function MerchantRouteGamePage() {
 
       {/* TOWN GATE CONTRABAND INSPECTION MODAL */}
       {pendingGateInspection && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="w-full max-w-lg rounded-xl border border-amber-600 bg-stone-900 p-6 text-stone-100 shadow-2xl">
-            <h3 className="font-serif text-2xl font-bold text-amber-100">
-              City Gate Inspection · {SETTLEMENTS[pendingGateInspection.settlementId].name}
-            </h3>
-            <p className="mt-3 text-sm text-stone-300">
-              Customs guards signal your caravan to halt. They inspect the cargo manifest and immediately detect <strong className="text-amber-300">{pendingGateInspection.moonshineCount} jugs of Canyon Moonshine</strong>, strictly prohibited within city limits.
-            </p>
-            <div className="mt-6 space-y-2.5">
-              <button
-                type="button"
-                onClick={handleGateInspectionBluff}
-                className="w-full rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-bold text-stone-950 hover:bg-amber-500 cursor-pointer"
-              >
-                Bluff Guards (Charisma {state.attributes.charisma} Check)
-              </button>
-              <button
-                type="button"
-                disabled={state.cash < 40}
-                onClick={handleGateInspectionBribe}
-                className="w-full rounded-lg border border-amber-700 bg-amber-950/80 px-4 py-2.5 text-sm font-bold text-amber-200 hover:bg-amber-900 disabled:opacity-40 cursor-pointer"
-              >
-                Bribe Guard ($40)
-              </button>
-              <button
-                type="button"
-                onClick={handleGateInspectionSurrender}
-                className="w-full rounded-lg border border-stone-700 bg-stone-800 px-4 py-2.5 text-sm font-semibold text-stone-300 hover:bg-stone-700 cursor-pointer"
-              >
-                Surrender Contraband Peacefully (No Fine)
-              </button>
-              <button
-                type="button"
-                onClick={handleGateInspectionTurnBack}
-                className="w-full rounded-lg border border-stone-800 bg-stone-950 px-4 py-2 text-xs font-semibold text-stone-400 hover:text-stone-200 cursor-pointer"
-              >
-                Turn Back from the Gate
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 select-none">
+          <div className="w-full max-w-lg caravan-bezel border-2 border-[#5c6e52] bg-[#141b12] text-[#ebdcb2] shadow-2xl overflow-hidden font-mono">
+            <div className="bg-[#172016] border-b-2 border-[#3c4a35] px-4 py-2.5 flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+                [INSPEÇÃO ALFANDEGÁRIA POLICIAL]
+              </span>
+              <span className="text-[11px] font-bold text-[#fde047]">
+                {SETTLEMENTS[pendingGateInspection.settlementId].name}
+              </span>
+            </div>
+            <div className="p-4 space-y-3 text-xs">
+              <h3 className="text-base font-black uppercase tracking-wide text-[#fef08a]">
+                Fiscalização de Portão · Contrabando Detectado
+              </h3>
+              <p className="bg-[#121710] border-l-4 border-[#fde047] px-3 py-2 text-[#ebdcb2] leading-relaxed">
+                Os guardas policiais sinalizam para sua caravana parar. Ao inspecionar o manifesto de carga, detectam{" "}
+                <strong className="text-[#fde047]">
+                  {pendingGateInspection.moonshineCount} galões de Canyon Moonshine
+                </strong>
+                , estritamente proibidos nos limites da cidade.
+              </p>
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleGateInspectionBluff}
+                  className="game-primary w-full justify-between px-3.5 py-2.5 text-xs font-black uppercase tracking-wider cursor-pointer"
+                >
+                  <span>Blefar com os Guardas (Teste de Carisma {state.attributes.charisma})</span>
+                  <span className="text-[#fde047]">CARISMA</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={state.cash < 40}
+                  onClick={handleGateInspectionBribe}
+                  className="game-secondary w-full justify-between px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider disabled:opacity-40 cursor-pointer"
+                >
+                  <span>Subornar Patrulha do Portão ($40)</span>
+                  <span className="text-amber-300">SEGURO</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGateInspectionSurrender}
+                  className="game-secondary w-full justify-between px-3.5 py-2 text-xs text-[#c5b896] cursor-pointer"
+                >
+                  <span>Entregar Contrabando Pacificamente (Sem Multa)</span>
+                  <span>CONFISCO</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGateInspectionTurnBack}
+                  className="game-secondary w-full justify-center px-3.5 py-2 text-xs text-[#95a38e] cursor-pointer"
+                >
+                  Meia-Volta (Não Entrar na Cidade)
+                </button>
+              </div>
             </div>
           </div>
         </div>

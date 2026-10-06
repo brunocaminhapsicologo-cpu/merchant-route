@@ -1,12 +1,138 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { Compass, Footprints, MapPin, Pause, Play, Tent, Wrench } from "lucide-react";
+import {
+  Compass,
+  Footprints,
+  MapPin,
+  Pause,
+  Play,
+  Shield,
+  Swords,
+  Tent,
+  Truck,
+  Users,
+  Wrench,
+} from "lucide-react";
 import { TransportIllustration } from "@/assets/caravaneerSprites";
-import { GameState, SettlementId } from "@/domain/types";
-import { SETTLEMENTS, ROUTES, SECRET_LOCATIONS } from "@/domain/worldData";
-import { getCaravanSpeedBreakdown, getDailyUpkeepSummary, getActiveTransportDefinition } from "@/domain/economyEngine";
-import { getBearing, getDistanceKm, getNearbySettlement, getTerrainAt, getWorldPosition } from "@/domain/navigationEngine";
+import { GameState, ItemId, RovingEntity, SettlementId, TransportId } from "@/domain/types";
+import { SETTLEMENTS, ROUTES, SECRET_LOCATIONS, ITEMS } from "@/domain/worldData";
+import {
+  getCaravanSpeedBreakdown,
+  getDailyUpkeepSummary,
+  getActiveTransportDefinition,
+} from "@/domain/economyEngine";
+import {
+  getBearing,
+  getDistanceKm,
+  getNearbySettlement,
+  getTerrainAt,
+  getWorldPosition,
+} from "@/domain/navigationEngine";
+
+function getEntityTypeMeta(type: RovingEntity["type"]): {
+  labelPt: string;
+  badgeColor: string;
+  strokeColor: string;
+  textColor: string;
+} {
+  switch (type) {
+    case "trader":
+      return {
+        labelPt: "MERCADOR",
+        badgeColor: "#0369a1",
+        strokeColor: "#38bdf8",
+        textColor: "#7dd3fc",
+      };
+    case "traveler":
+      return {
+        labelPt: "VIAJANTES",
+        badgeColor: "#b45309",
+        strokeColor: "#fbbf24",
+        textColor: "#fde68a",
+      };
+    case "sheriff_patrol":
+      return {
+        labelPt: "POLÍCIA",
+        badgeColor: "#15803d",
+        strokeColor: "#4ade80",
+        textColor: "#86efac",
+      };
+    case "raider":
+      return {
+        labelPt: "BANDIDOS",
+        badgeColor: "#b91c1c",
+        strokeColor: "#f87171",
+        textColor: "#fca5a5",
+      };
+  }
+}
+
+function getEntityTransportVisual(entity: RovingEntity): {
+  transportId: TransportId;
+  transportLabel: string;
+} {
+  if (entity.type === "sheriff_patrol") {
+    // Police strictly use at least horses or patrol cars
+    if (entity.speedKmh >= 13) {
+      return {
+        transportId: "desert_dune_buggy",
+        transportLabel: entity.transportLabel ?? "Viatura Policial V8",
+      };
+    }
+    return {
+      transportId: "heavy_wagon_horse",
+      transportLabel: entity.transportLabel ?? "Cavalos de Patrulha",
+    };
+  }
+  if (entity.type === "trader") {
+    if (entity.speedKmh >= 12) {
+      return {
+        transportId: "armored_pickup",
+        transportLabel: entity.transportLabel ?? "Caminhão de Carga V8",
+      };
+    }
+    return {
+      transportId: "heavy_wagon_horse",
+      transportLabel: entity.transportLabel ?? "Carroça Pesada & Mulas",
+    };
+  }
+  if (entity.type === "traveler") {
+    if (entity.speedKmh >= 8.5) {
+      return {
+        transportId: "heavy_wagon_horse",
+        transportLabel: entity.transportLabel ?? "Cavalo de Sela",
+      };
+    }
+    if (entity.speedKmh >= 5.4) {
+      return {
+        transportId: "wooden_cart_donkey",
+        transportLabel: entity.transportLabel ?? "Carroça Leve",
+      };
+    }
+    return {
+      transportId: "old_donkey",
+      transportLabel: entity.transportLabel ?? "A Pé & Burro de Carga",
+    };
+  }
+  // Raider
+  if (entity.speedKmh >= 11) {
+    return {
+      transportId: "desert_dune_buggy",
+      transportLabel: entity.transportLabel ?? "Carro de Assalto V8",
+    };
+  }
+  if (entity.speedKmh >= 7.5) {
+    return {
+      transportId: "heavy_wagon_horse",
+      transportLabel: entity.transportLabel ?? "Cavalos Roubados",
+    };
+  }
+  return {
+    transportId: "pack_mule_team",
+    transportLabel: entity.transportLabel ?? "Mulas & Cavalos Leves",
+  };
+}
 
 export function WorldDrawing({
   state,
@@ -16,14 +142,24 @@ export function WorldDrawing({
   compassTarget,
   onCompassMeasure,
   onStepMove,
+  onGlideToPoint,
+  onSelectEntity,
 }: {
   state: GameState;
   selected: SettlementId;
   onSelect: (id: SettlementId) => void;
   local?: boolean;
   compassTarget?: { x: number; y: number; snappedTown?: SettlementId | null } | null;
-  onCompassMeasure?: (target: { x: number; y: number; bearing: number; distanceKm: number; snappedTown: SettlementId | null }) => void;
+  onCompassMeasure?: (target: {
+    x: number;
+    y: number;
+    bearing: number;
+    distanceKm: number;
+    snappedTown: SettlementId | null;
+  }) => void;
   onStepMove?: () => void;
+  onGlideToPoint?: (x: number, y: number) => void;
+  onSelectEntity?: (entity: RovingEntity) => void;
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragStateRef = useRef<{
@@ -37,7 +173,9 @@ export function WorldDrawing({
   const position = getWorldPosition(state);
   const heading = state.exploration?.heading ?? 0;
   // Expanded viewBox prevents bottom edge clipping (New Chicago at y:650 has 110px padding)
-  const viewBox = local ? `${position.x - 150} ${position.y - 110} 300 220` : "-20 -20 1040 780";
+  const viewBox = local
+    ? `${position.x - 150} ${position.y - 110} 300 220`
+    : "-20 -20 1040 780";
 
   // Calculate default compass vector endpoint if user hasn't dragged a custom point yet
   const rad = (heading * Math.PI) / 180;
@@ -49,7 +187,10 @@ export function WorldDrawing({
   const measuredBearing = getBearing(position, activeTarget);
   const measuredDistanceKm = getDistanceKm(position, activeTarget);
 
-  const clientToSvgPoint = (clientX: number, clientY: number): { x: number; y: number } | null => {
+  const clientToSvgPoint = (
+    clientX: number,
+    clientY: number
+  ): { x: number; y: number } | null => {
     const svg = svgRef.current;
     if (!svg) return null;
     const ctm = svg.getScreenCTM();
@@ -65,13 +206,15 @@ export function WorldDrawing({
   };
 
   const resolveCompassPoint = (rawPt: { x: number; y: number }) => {
-    // Snap to settlement coordinates when dragging near a city center so player gets exact bearing
     let snappedTown: SettlementId | null = null;
     let targetX = rawPt.x;
     let targetY = rawPt.y;
     let bestDist = 24;
     for (const town of Object.values(SETTLEMENTS)) {
-      const d = Math.hypot(rawPt.x - town.coordinates.x, rawPt.y - town.coordinates.y);
+      const d = Math.hypot(
+        rawPt.x - town.coordinates.x,
+        rawPt.y - town.coordinates.y
+      );
       if (d <= bestDist) {
         bestDist = d;
         targetX = town.coordinates.x;
@@ -114,7 +257,12 @@ export function WorldDrawing({
 
   const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
     if (local) {
-      onStepMove?.();
+      const svgPt = clientToSvgPoint(e.clientX, e.clientY);
+      if (svgPt && onGlideToPoint) {
+        onGlideToPoint(svgPt.x, svgPt.y);
+      } else {
+        onStepMove?.();
+      }
       return;
     }
     if (!dragStateRef.current.active) return;
@@ -127,7 +275,6 @@ export function WorldDrawing({
       // ignore if not captured
     }
     if (!wasDrag) {
-      // A discrete click on the map steps the caravan 1 click along the current compass bearing
       onStepMove?.();
     }
   };
@@ -137,7 +284,11 @@ export function WorldDrawing({
       ref={svgRef}
       viewBox={viewBox}
       role="img"
-      aria-label={local ? "Surrounding desert and nearby settlements — click to advance step by step" : "World atlas with interactive draggable compass and click-by-click movement"}
+      aria-label={
+        local
+          ? "Surrounding desert and nearby settlements — click to glide smoothly"
+          : "World atlas with interactive draggable compass and smooth caravan movement"
+      }
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -151,8 +302,13 @@ export function WorldDrawing({
     >
       <defs>
         {/* Authentic Cracked Desert Terrain Pattern */}
-        <pattern id={local ? "sand-local" : "sand-atlas"} width="80" height="80" patternUnits="userSpaceOnUse">
-          <rect width="80" height="80" fill="#c5b285"/>
+        <pattern
+          id={local ? "sand-local" : "sand-atlas"}
+          width="80"
+          height="80"
+          patternUnits="userSpaceOnUse"
+        >
+          <rect width="80" height="80" fill="#c5b285" />
           <path
             d="M0 26 L22 30 L38 20 L58 34 L80 28 M38 20 L36 0 M22 30 L16 56 L34 74 L44 80 M58 34 L66 60 L52 76 M0 65 L16 56"
             fill="none"
@@ -160,42 +316,91 @@ export function WorldDrawing({
             strokeWidth="0.8"
             opacity="0.4"
           />
-          <circle cx="30" cy="15" r="1.2" fill="#756441" opacity="0.45"/>
-          <circle cx="65" cy="45" r="1.5" fill="#756441" opacity="0.35"/>
-          <circle cx="15" cy="70" r="1" fill="#756441" opacity="0.4"/>
+          <circle cx="30" cy="15" r="1.2" fill="#756441" opacity="0.45" />
+          <circle cx="65" cy="45" r="1.5" fill="#756441" opacity="0.35" />
+          <circle cx="15" cy="70" r="1" fill="#756441" opacity="0.4" />
         </pattern>
 
         {/* Topo / Desert Grid */}
-        <pattern id="map-grid" width="100" height="100" patternUnits="userSpaceOnUse">
-          <path d="M100 0H0V100" fill="none" stroke="#5a684e" strokeWidth="0.8" opacity="0.35"/>
+        <pattern
+          id="map-grid"
+          width="100"
+          height="100"
+          patternUnits="userSpaceOnUse"
+        >
+          <path
+            d="M100 0H0V100"
+            fill="none"
+            stroke="#5a684e"
+            strokeWidth="0.8"
+            opacity="0.35"
+          />
         </pattern>
       </defs>
 
       {/* Desert Background with Cracked Earth */}
-      <rect x="-300" y="-300" width="1600" height="1300" fill={`url(#${local ? "sand-local" : "sand-atlas"})`}/>
+      <rect
+        x="-300"
+        y="-300"
+        width="1600"
+        height="1300"
+        fill={`url(#${local ? "sand-local" : "sand-atlas"})`}
+      />
 
       {/* Topographic Elevation Waves */}
-      <path d="M -50 160 Q 250 110 500 170 T 1100 130" fill="none" stroke="#8c784f" strokeWidth="1" strokeDasharray="5 5" opacity="0.5"/>
-      <path d="M -50 340 Q 300 290 650 360 T 1100 300" fill="none" stroke="#8c784f" strokeWidth="1" strokeDasharray="5 5" opacity="0.5"/>
-      <path d="M -50 530 Q 280 470 580 540 T 1100 480" fill="none" stroke="#8c784f" strokeWidth="1" strokeDasharray="5 5" opacity="0.5"/>
+      <path
+        d="M -50 160 Q 250 110 500 170 T 1100 130"
+        fill="none"
+        stroke="#8c784f"
+        strokeWidth="1"
+        strokeDasharray="5 5"
+        opacity="0.5"
+      />
+      <path
+        d="M -50 340 Q 300 290 650 360 T 1100 300"
+        fill="none"
+        stroke="#8c784f"
+        strokeWidth="1"
+        strokeDasharray="5 5"
+        opacity="0.5"
+      />
+      <path
+        d="M -50 530 Q 280 470 580 540 T 1100 480"
+        fill="none"
+        stroke="#8c784f"
+        strokeWidth="1"
+        strokeDasharray="5 5"
+        opacity="0.5"
+      />
 
       {/* Dried Riverbed / Salt Flats */}
-      <path d="M60 50 Q260 210 300 150 T620 200 Q770 190 980 90 M130 630 Q220 410 510 470 T900 590" fill="none" stroke="#665640" strokeWidth="32" opacity="0.22"/>
-      <path d="M55 45 Q265 210 300 150 T620 200 Q770 190 980 90 M125 625 Q220 410 510 470 T900 590" fill="none" stroke="#4a3e2e" strokeWidth="2" opacity="0.35"/>
-      <ellipse cx="390" cy="470" rx="150" ry="76" fill="#e0caa0" opacity="0.65"/>
+      <path
+        d="M60 50 Q260 210 300 150 T620 200 Q770 190 980 90 M130 630 Q220 410 510 470 T900 590"
+        fill="none"
+        stroke="#665640"
+        strokeWidth="32"
+        opacity="0.22"
+      />
+      <path
+        d="M55 45 Q265 210 300 150 T620 200 Q770 190 980 90 M125 625 Q220 410 510 470 T900 590"
+        fill="none"
+        stroke="#4a3e2e"
+        strokeWidth="2"
+        opacity="0.35"
+      />
+      <ellipse cx="390" cy="470" rx="150" ry="76" fill="#e0caa0" opacity="0.65" />
 
       {/* Coordinate Grid Overlay */}
-      <rect x="-20" y="-20" width="1040" height="780" fill="url(#map-grid)"/>
+      <rect x="-20" y="-20" width="1040" height="780" fill="url(#map-grid)" />
 
       {/* Caravan Routes */}
-      {ROUTES.map(route => {
+      {ROUTES.map((route) => {
         const from = SETTLEMENTS[route.from].coordinates;
         const to = SETTLEMENTS[route.to].coordinates;
         const isHighway = route.terrain === "old_highway";
 
         return (
           <g key={route.id}>
-            {/* Highway Road Bed */}
             {isHighway && (
               <line
                 x1={from.x}
@@ -208,7 +413,6 @@ export function WorldDrawing({
                 opacity="0.75"
               />
             )}
-            {/* Route Centerline */}
             <line
               x1={from.x}
               y1={from.y}
@@ -224,7 +428,7 @@ export function WorldDrawing({
       })}
 
       {/* Settlements with Tactical Badges */}
-      {Object.values(SETTLEMENTS).map(town => {
+      {Object.values(SETTLEMENTS).map((town) => {
         const isSelected = selected === town.id;
         const isMajor = town.tier === "major_city";
         const labelWidth = Math.max(90, town.name.length * 8.5);
@@ -235,11 +439,18 @@ export function WorldDrawing({
             role="button"
             tabIndex={0}
             aria-label={`Inspect ${town.name}`}
-            onClick={() => onSelect(town.id)}
-            onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(town.id); } }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(town.id);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(town.id);
+              }
+            }}
             className="cursor-pointer outline-none group"
           >
-            {/* Selection Pulse Ring */}
             {isSelected && (
               <circle
                 cx={town.coordinates.x}
@@ -252,7 +463,6 @@ export function WorldDrawing({
               />
             )}
 
-            {/* Town Outpost Outer Ring */}
             <circle
               cx={town.coordinates.x}
               cy={town.coordinates.y}
@@ -262,14 +472,16 @@ export function WorldDrawing({
               strokeWidth={isSelected ? 3 : 2.5}
             />
 
-            {/* Outpost Icon Symbol */}
             <path
               d={`M${town.coordinates.x - 5} ${town.coordinates.y + 4}v-7l5-4 5 4v7z`}
               fill={isMajor ? "#93c5fd" : "#fde047"}
             />
 
-            {/* Stamped Tactical Name Badge */}
-            <g transform={`translate(${town.coordinates.x}, ${town.coordinates.y + (local ? 18 : 28)})`}>
+            <g
+              transform={`translate(${town.coordinates.x}, ${
+                town.coordinates.y + (local ? 18 : 28)
+              })`}
+            >
               <rect
                 x={-labelWidth / 2}
                 y="-11"
@@ -299,25 +511,155 @@ export function WorldDrawing({
       })}
 
       {/* Secret Caches */}
-      {SECRET_LOCATIONS.filter(s => (state.discoveredSecretIds ?? []).includes(s.id)).map(sec => {
+      {SECRET_LOCATIONS.filter((s) =>
+        (state.discoveredSecretIds ?? []).includes(s.id)
+      ).map((sec) => {
         const isCleared = (state.clearedSecretIds ?? []).includes(sec.id);
         return (
           <g key={sec.id} transform={`translate(${sec.x} ${sec.y})`}>
-            <polygon points="0,-10 9,5 -9,5" fill={isCleared ? "#78716c" : "#f59e0b"} stroke="#141813" strokeWidth="2" />
-            <title>{sec.name} {isCleared ? "(Cleared)" : "(Unexplored Cache)"}</title>
-            <text x="0" y={local ? 13 : 18} textAnchor="middle" fill={isCleared ? "#a8a29e" : "#fef08a"} fontSize={local ? 7 : 10} fontWeight="bold" paintOrder="stroke" stroke="#141813" strokeWidth="2.5">{sec.name}</text>
+            <polygon
+              points="0,-10 9,5 -9,5"
+              fill={isCleared ? "#78716c" : "#f59e0b"}
+              stroke="#141813"
+              strokeWidth="2"
+            />
+            <title>
+              {sec.name} {isCleared ? "(Saqueado)" : "(Esconderijo Descoberto)"}
+            </title>
+            <text
+              x="0"
+              y={local ? 13 : 18}
+              textAnchor="middle"
+              fill={isCleared ? "#a8a29e" : "#fef08a"}
+              fontSize={local ? 7 : 10}
+              fontWeight="bold"
+              paintOrder="stroke"
+              stroke="#141813"
+              strokeWidth="2.5"
+            >
+              {sec.name}
+            </text>
           </g>
         );
       })}
 
-      {/* Roving Entities (Sheriff, Traders, Raiders) */}
-      {(state.rovingEntities ?? []).map(entity => {
-        const color = entity.type === "trader" ? "#0284c7" : entity.type === "sheriff_patrol" ? "#22c55e" : "#ef4444";
+      {/* Living World Caravans (Merchants, Travelers, Police on Horses/Cars, and Bandits) */}
+      {(state.rovingEntities ?? []).map((entity) => {
+        const meta = getEntityTypeMeta(entity.type);
+        const transportMeta = getEntityTransportVisual(entity);
+        const isOffroad = entity.routeMode === "offroad";
+        const headingRad = ((entity.heading ?? 0) * Math.PI) / 180;
+
         return (
-          <g key={entity.id} transform={`translate(${entity.x} ${entity.y})`}>
-            <circle r={local ? 6 : 8} fill={color} stroke="#141813" strokeWidth="2" />
-            <title>{entity.name} ({entity.type.replaceAll("_", " ")})</title>
-            {local && <text y={-9} textAnchor="middle" fill={color} fontSize="7" fontWeight="bold" paintOrder="stroke" stroke="#141813" strokeWidth="2">{entity.name}</text>}
+          <g
+            key={entity.id}
+            transform={`translate(${entity.x} ${entity.y})`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectEntity?.(entity);
+            }}
+            onPointerUp={(e) => {
+              if (onSelectEntity) {
+                e.stopPropagation();
+                onSelectEntity(entity);
+              }
+            }}
+            className="cursor-pointer group"
+          >
+            {/* Subtle movement vector line */}
+            <line
+              x1="0"
+              y1="0"
+              x2={Math.sin(headingRad) * (local ? 16 : 22)}
+              y2={-Math.cos(headingRad) * (local ? 16 : 22)}
+              stroke={meta.strokeColor}
+              strokeWidth={local ? "1.2" : "1.5"}
+              strokeDasharray="2 2"
+              opacity="0.75"
+            />
+
+            {/* Outer tactical token */}
+            <circle
+              r={local ? 6.5 : 8.5}
+              fill={meta.badgeColor}
+              stroke="#141b12"
+              strokeWidth="2"
+            />
+            <circle
+              r={local ? 6.5 : 8.5}
+              fill="none"
+              stroke={meta.strokeColor}
+              strokeWidth="1"
+            />
+
+            {/* Directional heading chevron inside token */}
+            <path
+              d={local ? "M0-4.2L3 3 0 1.4-3 3Z" : "M0-5.5L4 4 0 2-4 4Z"}
+              fill="#fef08a"
+              transform={`rotate(${entity.heading ?? 0})`}
+            />
+
+            <title>
+              {entity.name} — [{meta.labelPt} · {transportMeta.transportLabel} ·{" "}
+              {entity.speedKmh.toFixed(1)} km/h ·{" "}
+              {isOffroad ? "Fora da Estrada" : "Pela Estrada"}]
+            </title>
+
+            {/* Detailed Stamped Tag on Local Travel View */}
+            {local ? (
+              <g transform="translate(0, -11)">
+                <rect
+                  x="-54"
+                  y="-11"
+                  width="108"
+                  height="13"
+                  rx="2"
+                  fill="#141b12"
+                  stroke={meta.strokeColor}
+                  strokeWidth="0.8"
+                  opacity="0.92"
+                />
+                <text
+                  x="0"
+                  y="-2.5"
+                  textAnchor="middle"
+                  fill={meta.textColor}
+                  fontSize="5.2"
+                  fontWeight="900"
+                  fontFamily="ui-monospace, monospace"
+                >
+                  {entity.name}
+                </text>
+                <text
+                  x="0"
+                  y="19"
+                  textAnchor="middle"
+                  fill="#ebdcb2"
+                  fontSize="4.6"
+                  fontWeight="bold"
+                  fontFamily="ui-monospace, monospace"
+                  paintOrder="stroke"
+                  stroke="#141b12"
+                  strokeWidth="1.8"
+                >
+                  [{transportMeta.transportLabel} · {entity.speedKmh.toFixed(1)}km/h]
+                </text>
+              </g>
+            ) : (
+              <text
+                y="-11"
+                textAnchor="middle"
+                fill={meta.textColor}
+                fontSize="8.5"
+                fontWeight="bold"
+                fontFamily="ui-monospace, monospace"
+                paintOrder="stroke"
+                stroke="#141813"
+                strokeWidth="2.5"
+              >
+                {meta.labelPt}
+              </text>
+            )}
           </g>
         );
       })}
@@ -325,7 +667,6 @@ export function WorldDrawing({
       {/* INTERACTIVE DRAGGABLE COMPASS & PROTRACTOR ON GENERAL MAP */}
       {!local && (
         <g className="select-none">
-          {/* Outer Protractor Ring Centered on Caravan */}
           <g transform={`translate(${position.x} ${position.y})`}>
             <circle
               r="58"
@@ -341,7 +682,6 @@ export function WorldDrawing({
               strokeWidth="1"
               opacity="0.6"
             />
-            {/* Degree Tick Marks around Protractor */}
             {Array.from({ length: 12 }).map((_, i) => {
               const deg = i * 30;
               const a = (deg * Math.PI) / 180;
@@ -361,10 +701,62 @@ export function WorldDrawing({
                 />
               );
             })}
-            <text x="0" y="-63" textAnchor="middle" fill="#fde047" fontSize="10" fontWeight="900" fontFamily="monospace" paintOrder="stroke" stroke="#141813" strokeWidth="3">N 0°</text>
-            <text x="68" y="3" textAnchor="start" fill="#fde047" fontSize="9" fontWeight="900" fontFamily="monospace" paintOrder="stroke" stroke="#141813" strokeWidth="3">90° L</text>
-            <text x="0" y="71" textAnchor="middle" fill="#fde047" fontSize="9" fontWeight="900" fontFamily="monospace" paintOrder="stroke" stroke="#141813" strokeWidth="3">S 180°</text>
-            <text x="-68" y="3" textAnchor="end" fill="#fde047" fontSize="9" fontWeight="900" fontFamily="monospace" paintOrder="stroke" stroke="#141813" strokeWidth="3">270° O</text>
+            <text
+              x="0"
+              y="-63"
+              textAnchor="middle"
+              fill="#fde047"
+              fontSize="10"
+              fontWeight="900"
+              fontFamily="monospace"
+              paintOrder="stroke"
+              stroke="#141813"
+              strokeWidth="3"
+            >
+              N 0°
+            </text>
+            <text
+              x="68"
+              y="3"
+              textAnchor="start"
+              fill="#fde047"
+              fontSize="9"
+              fontWeight="900"
+              fontFamily="monospace"
+              paintOrder="stroke"
+              stroke="#141813"
+              strokeWidth="3"
+            >
+              90° L
+            </text>
+            <text
+              x="0"
+              y="71"
+              textAnchor="middle"
+              fill="#fde047"
+              fontSize="9"
+              fontWeight="900"
+              fontFamily="monospace"
+              paintOrder="stroke"
+              stroke="#141813"
+              strokeWidth="3"
+            >
+              S 180°
+            </text>
+            <text
+              x="-68"
+              y="3"
+              textAnchor="end"
+              fill="#fde047"
+              fontSize="9"
+              fontWeight="900"
+              fontFamily="monospace"
+              paintOrder="stroke"
+              stroke="#141813"
+              strokeWidth="3"
+            >
+              270° O
+            </text>
           </g>
 
           {/* Measured Compass Vector Line from Caravan to Dragged Target */}
@@ -387,7 +779,6 @@ export function WorldDrawing({
               strokeWidth="2"
             />
             <circle r="4" fill="#fde047" />
-            {/* Readout Badge next to Compass Tip */}
             <g transform="translate(14, -18)">
               <rect
                 x="0"
@@ -409,7 +800,9 @@ export function WorldDrawing({
                 fontFamily="ui-monospace, monospace"
               >
                 {measuredBearing.toFixed(1)}° · {measuredDistanceKm.toFixed(1)} km
-                {activeTarget.snappedTown ? ` [${SETTLEMENTS[activeTarget.snappedTown].name}]` : ""}
+                {activeTarget.snappedTown
+                  ? ` [${SETTLEMENTS[activeTarget.snappedTown].name}]`
+                  : ""}
               </text>
             </g>
           </g>
@@ -429,14 +822,47 @@ export function WorldDrawing({
             strokeDasharray="5 4"
           />
         )}
-        <circle r={local ? 12 : 15} fill="#273826" stroke="#fde047" strokeWidth="2.5"/>
-        <path d="M0-11L6 6 0 3-6 6Z" fill="#fde047" transform={`rotate(${heading})`}/>
+        <circle
+          r={local ? 11 : 15}
+          fill="#273826"
+          stroke="#fde047"
+          strokeWidth="2.5"
+        />
+        <path
+          d="M0-10L5.5 5.5 0 2.8-5.5 5.5Z"
+          fill="#fde047"
+          transform={`rotate(${heading})`}
+        />
         {/* Radar Ring */}
-        <circle r={local ? 70 : 35} fill="none" stroke="#22c55e" strokeDasharray="3 5" strokeWidth="1" opacity="0.75"/>
+        <circle
+          r={local ? 70 : 35}
+          fill="none"
+          stroke="#22c55e"
+          strokeDasharray="3 5"
+          strokeWidth="1"
+          opacity="0.75"
+        />
         {!local && (
           <g transform="translate(18, 22)">
-            <rect x="0" y="-10" width="125" height="18" rx="2" fill="#141b12" stroke="#4ade80" strokeWidth="1" opacity="0.9" />
-            <text x="6" y="3" fill="#4ade80" fontSize="9" fontWeight="bold" fontFamily="monospace">
+            <rect
+              x="0"
+              y="-10"
+              width="125"
+              height="18"
+              rx="2"
+              fill="#141b12"
+              stroke="#4ade80"
+              strokeWidth="1"
+              opacity="0.9"
+            />
+            <text
+              x="6"
+              y="3"
+              fill="#4ade80"
+              fontSize="9"
+              fontWeight="bold"
+              fontFamily="monospace"
+            >
               CARAVANA [{position.x.toFixed(0)}, {position.y.toFixed(0)}]
             </text>
           </g>
@@ -446,42 +872,440 @@ export function WorldDrawing({
       {/* Atlas Header & Corner Elements */}
       {!local && (
         <>
-          {/* Stamped Map Title & Instructions */}
           <g transform="translate(30, 35)">
-            <rect x="0" y="-16" width="520" height="28" rx="3" fill="#161e14" stroke="#4c5d43" strokeWidth="1.5" opacity="0.92"/>
-            <text x="12" y="2" fill="#fde047" fontSize="11" fontWeight="900" letterSpacing="0.06em" fontFamily="ui-monospace, monospace">
-              ★ ARRASTE A BÚSSOLA ATÉ A CIDADE PARA CALCULAR O GRAU · CLIQUE PARA MOVER PASSO A PASSO
+            <rect
+              x="0"
+              y="-16"
+              width="535"
+              height="28"
+              rx="3"
+              fill="#161e14"
+              stroke="#4c5d43"
+              strokeWidth="1.5"
+              opacity="0.92"
+            />
+            <text
+              x="12"
+              y="2"
+              fill="#fde047"
+              fontSize="10.5"
+              fontWeight="900"
+              letterSpacing="0.05em"
+              fontFamily="ui-monospace, monospace"
+            >
+              ★ ARRASTE A BÚSSOLA ATÉ A CIDADE PARA CALCULAR O GRAU · CLIQUE PARA MOVER FLUIDAMENTE
             </text>
           </g>
 
-          {/* Scale Legend (Bottom Left, safely away from New Chicago) */}
           <g transform="translate(35, 735)">
-            <rect x="0" y="-18" width="165" height="26" rx="2" fill="#161e14" stroke="#4c5d43" strokeWidth="1" opacity="0.9"/>
-            <text x="10" y="-1" fill="#ebdcb2" fontSize="11" fontWeight="bold" fontFamily="monospace">100 units = 20 km</text>
-            <path d="M10 4 h145 M10 0 v8 M155 0 v8 M82 1 v6" stroke="#ebdcb2" strokeWidth="1.5"/>
+            <rect
+              x="0"
+              y="-18"
+              width="165"
+              height="26"
+              rx="2"
+              fill="#161e14"
+              stroke="#4c5d43"
+              strokeWidth="1"
+              opacity="0.9"
+            />
+            <text
+              x="10"
+              y="-1"
+              fill="#ebdcb2"
+              fontSize="11"
+              fontWeight="bold"
+              fontFamily="monospace"
+            >
+              100 units = 20 km
+            </text>
+            <path
+              d="M10 4 h145 M10 0 v8 M155 0 v8 M82 1 v6"
+              stroke="#ebdcb2"
+              strokeWidth="1.5"
+            />
           </g>
 
           {/* Map Legend Box (Top Right) */}
-          <g transform="translate(790, 20)">
-            <rect x="0" y="0" width="215" height="75" rx="4" fill="#151d13" stroke="#475640" strokeWidth="1.5" opacity="0.92"/>
-            <text x="10" y="18" fill="#fde047" fontSize="10" fontWeight="bold" fontFamily="monospace">MAP LEGEND [LEGENDA]:</text>
-            
-            <circle cx="18" cy="34" r="5" fill="#4a2d16" stroke="#fde047" strokeWidth="1.5"/>
-            <text x="30" y="37" fill="#ebdcb2" fontSize="9" fontFamily="sans-serif">Frontier Outpost</text>
+          <g transform="translate(770, 20)">
+            <rect
+              x="0"
+              y="0"
+              width="235"
+              height="92"
+              rx="4"
+              fill="#151d13"
+              stroke="#475640"
+              strokeWidth="1.5"
+              opacity="0.94"
+            />
+            <text
+              x="10"
+              y="16"
+              fill="#fde047"
+              fontSize="9.5"
+              fontWeight="bold"
+              fontFamily="monospace"
+            >
+              LEGENDA DO MAPA & CARAVANAS:
+            </text>
 
-            <circle cx="120" cy="34" r="5" fill="#1c2a33" stroke="#60a5fa" strokeWidth="1.5"/>
-            <text x="132" y="37" fill="#ebdcb2" fontSize="9" fontFamily="sans-serif">Metropolis</text>
+            <circle
+              cx="16"
+              cy="31"
+              r="4.5"
+              fill="#0369a1"
+              stroke="#38bdf8"
+              strokeWidth="1.2"
+            />
+            <text
+              x="26"
+              y="34"
+              fill="#ebdcb2"
+              fontSize="8.5"
+              fontFamily="monospace"
+            >
+              Mercadores
+            </text>
 
-            <line x1="10" y1="56" x2="30" y2="56" stroke="#3f382c" strokeWidth="4"/>
-            <line x1="10" y1="56" x2="30" y2="56" stroke="#ebdcb2" strokeWidth="1.5" strokeDasharray="3 3"/>
-            <text x="36" y="60" fill="#ebdcb2" fontSize="9" fontFamily="sans-serif">Old Highway</text>
+            <circle
+              cx="120"
+              cy="31"
+              r="4.5"
+              fill="#b45309"
+              stroke="#fbbf24"
+              strokeWidth="1.2"
+            />
+            <text
+              x="130"
+              y="34"
+              fill="#ebdcb2"
+              fontSize="8.5"
+              fontFamily="monospace"
+            >
+              Viajantes
+            </text>
 
-            <line x1="115" y1="56" x2="135" y2="56" stroke="#7d6741" strokeWidth="2" strokeDasharray="3 3"/>
-            <text x="140" y="60" fill="#ebdcb2" fontSize="9" fontFamily="sans-serif">Desert Trail</text>
+            <circle
+              cx="16"
+              cy="49"
+              r="4.5"
+              fill="#15803d"
+              stroke="#4ade80"
+              strokeWidth="1.2"
+            />
+            <text
+              x="26"
+              y="52"
+              fill="#ebdcb2"
+              fontSize="8.5"
+              fontFamily="monospace"
+            >
+              Polícia (Cavalo/V8)
+            </text>
+
+            <circle
+              cx="132"
+              cy="49"
+              r="4.5"
+              fill="#b91c1c"
+              stroke="#f87171"
+              strokeWidth="1.2"
+            />
+            <text
+              x="142"
+              y="52"
+              fill="#ebdcb2"
+              fontSize="8.5"
+              fontFamily="monospace"
+            >
+              Bandidos
+            </text>
+
+            <line
+              x1="10"
+              y1="72"
+              x2="28"
+              y2="72"
+              stroke="#3f382c"
+              strokeWidth="4"
+            />
+            <line
+              x1="10"
+              y1="72"
+              x2="28"
+              y2="72"
+              stroke="#ebdcb2"
+              strokeWidth="1.5"
+              strokeDasharray="3 3"
+            />
+            <text
+              x="34"
+              y="75"
+              fill="#ebdcb2"
+              fontSize="8.5"
+              fontFamily="monospace"
+            >
+              Rodovia Antiga
+            </text>
+
+            <line
+              x1="120"
+              y1="72"
+              x2="138"
+              y2="72"
+              stroke="#7d6741"
+              strokeWidth="2"
+              strokeDasharray="3 3"
+            />
+            <text
+              x="144"
+              y="75"
+              fill="#ebdcb2"
+              fontSize="8.5"
+              fontFamily="monospace"
+            >
+              Trilha do Deserto
+            </text>
           </g>
         </>
       )}
     </svg>
+  );
+}
+
+/** Caravan Approach / Interaction Modal matching the Caravaneer Military Console Visual Identity */
+function CaravanApproachModal({
+  state,
+  entity,
+  onClose,
+  onTriggerHostileEncounter,
+  onRoadTradeBuy,
+  onShareWaterWithTraveler,
+}: {
+  state: GameState;
+  entity: RovingEntity;
+  onClose: () => void;
+  onTriggerHostileEncounter?: (entity: RovingEntity) => void;
+  onRoadTradeBuy?: (itemId: ItemId, price: number) => void;
+  onShareWaterWithTraveler?: () => void;
+}) {
+  const meta = getEntityTypeMeta(entity.type);
+  const transportVisual = getEntityTransportVisual(entity);
+  const playerTransport = getActiveTransportDefinition(state);
+  const playerPos = getWorldPosition(state);
+  const distKm = getDistanceKm(playerPos, { x: entity.x, y: entity.y });
+  const terrain = getTerrainAt(playerPos);
+  const playerSpeed = getCaravanSpeedBreakdown(state, terrain);
+
+  const trailSupplies: Array<{ itemId: ItemId; price: number }> = [
+    { itemId: "water", price: 11 },
+    { itemId: "food_rations", price: 15 },
+    { itemId: "animal_forage", price: 9 },
+    { itemId: "field_bandage", price: 32 },
+  ];
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 select-none"
+    >
+      <div className="w-full max-w-2xl caravan-bezel border-2 border-[#5c6e52] bg-[#141b12] text-[#ebdcb2] shadow-2xl overflow-hidden font-mono">
+        {/* TOP HEADER BAR */}
+        <div className="bg-[#172016] border-b-2 border-[#3c4a35] px-4 py-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-9 w-9 items-center justify-center border-2 text-xs font-black"
+              style={{
+                backgroundColor: "#121811",
+                borderColor: meta.strokeColor,
+                color: meta.textColor,
+              }}
+            >
+              {entity.type === "sheriff_patrol" ? (
+                <Shield size={18} />
+              ) : entity.type === "raider" ? (
+                <Swords size={18} />
+              ) : entity.type === "trader" ? (
+                <Truck size={18} />
+              ) : (
+                <Users size={18} />
+              )}
+            </div>
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-[#95a38e]">
+                [CONTATO VISUAL DE CARAVANA · {meta.labelPt}]
+              </div>
+              <h3 className="text-base font-black uppercase tracking-wide text-[#fef08a]">
+                {entity.name}
+              </h3>
+            </div>
+          </div>
+
+          <span className="border border-[#47573f] bg-[#121811] px-2.5 py-1 text-[10px] font-bold uppercase text-[#fde047]">
+            {entity.routeMode === "offroad" ? "FORA DA ESTRADA" : "NA ESTRADA"} ·{" "}
+            {distKm.toFixed(1)} KM
+          </span>
+        </div>
+
+        <div className="p-4 space-y-3 text-xs">
+          {/* SIDE-BY-SIDE VISUAL COMPARISON */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 caravan-gauge p-2.5 border border-[#3c4a35]">
+            <div className="flex items-center gap-3 bg-[#141a12] border border-[#2d3829] p-2">
+              <div className="h-12 w-20 shrink-0 bg-[#10150e] border border-[#33402e] p-1 flex items-center justify-center">
+                <TransportIllustration
+                  transportId={state.transport}
+                  className="h-full w-full object-contain"
+                />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] font-black uppercase text-emerald-400">
+                  SUA CARAVANA
+                </div>
+                <div className="font-bold text-[#ebdcb2] truncate">
+                  {playerTransport.name}
+                </div>
+                <div className="text-[11px] text-[#fde047]">
+                  Vel: {playerSpeed.effectiveSpeedKmh.toFixed(1)} km/h
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 bg-[#141a12] border border-[#2d3829] p-2">
+              <div className="h-12 w-20 shrink-0 bg-[#10150e] border border-[#33402e] p-1 flex items-center justify-center">
+                <TransportIllustration
+                  transportId={transportVisual.transportId}
+                  className="h-full w-full object-contain"
+                />
+              </div>
+              <div className="min-w-0">
+                <div
+                  className="text-[10px] font-black uppercase"
+                  style={{ color: meta.textColor }}
+                >
+                  {meta.labelPt} ({entity.partySize ?? 3} INTEGRANTES)
+                </div>
+                <div className="font-bold text-[#ebdcb2] truncate">
+                  {transportVisual.transportLabel}
+                </div>
+                <div className="text-[11px] text-[#fde047]">
+                  Vel: {entity.speedKmh.toFixed(1)} km/h · Rumo{" "}
+                  {(entity.heading ?? 0).toFixed(0)}°
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* DESCRIPTION */}
+          <div className="bg-[#121710] border-l-4 border-[#fde047] px-3 py-2 text-[#ebdcb2] leading-relaxed">
+            {entity.description}
+          </div>
+
+          {/* CONTEXTUAL INTERACTION BY CARAVAN TYPE */}
+          {entity.type === "sheriff_patrol" && (
+            <div className="caravan-gauge p-3 border border-[#3c4a35] space-y-1.5">
+              <div className="text-[11px] font-black uppercase text-emerald-400">
+                Relatório da Patrulha Policial ({transportVisual.transportLabel})
+              </div>
+              <p className="text-[#c5b896] text-[11px]">
+                {(state.inventory.moonshine ?? 0) > 0
+                  ? "⚠️ Os policiais observam sua carga de perto. Evite entrar em metrópoles com Contrabando (Moonshine) sem preparar seu Carisma."
+                  : "✓ Manifesto de carga em conformidade. A patrulha informa que bandidos têm rondado fora da estrada perto dos desfiladeiros."}
+              </p>
+            </div>
+          )}
+
+          {entity.type === "trader" && onRoadTradeBuy && (
+            <div className="caravan-gauge p-3 border border-[#3c4a35] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase text-[#7dd3fc]">
+                  Comércio Rápido de Estrada (Suprimentos de Emergência)
+                </span>
+                <span className="text-[11px] text-emerald-400 font-bold">
+                  Seu Saldo: ${state.cash.toFixed(0)}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {trailSupplies.map(({ itemId, price }) => {
+                  const item = ITEMS[itemId];
+                  return (
+                    <button
+                      key={itemId}
+                      type="button"
+                      disabled={state.cash < price}
+                      onClick={() => onRoadTradeBuy(itemId, price)}
+                      className="game-secondary py-1.5 px-2.5 text-[11px] flex items-center justify-between disabled:opacity-40 cursor-pointer"
+                    >
+                      <span>+1 {item.name}</span>
+                      <span className="text-[#fde047] font-bold">${price}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {entity.type === "traveler" && (
+            <div className="caravan-gauge p-3 border border-[#3c4a35] space-y-2">
+              <div className="text-[11px] font-black uppercase text-[#fde68a]">
+                Encontro com Viajantes na Trilha
+              </div>
+              <p className="text-[#c5b896] text-[11px]">
+                &ldquo;A estrada está seca, mercador. Se tiver água sobrando,
+                agradecemos a ajuda — que a sorte acompanhe sua caravana!&rdquo;
+              </p>
+              {onShareWaterWithTraveler && (state.inventory.water ?? 0) >= 1 && (
+                <button
+                  type="button"
+                  onClick={onShareWaterWithTraveler}
+                  className="game-secondary py-1.5 px-3 text-[11px] text-emerald-300 font-bold cursor-pointer"
+                >
+                  Compartilhar 1L de Água Purificada (+2 Reputação)
+                </button>
+              )}
+            </div>
+          )}
+
+          {entity.type === "raider" && (
+            <div className="caravan-gauge p-3 border border-red-900/60 bg-[#1c1212] space-y-2">
+              <div className="text-[11px] font-black uppercase text-red-400">
+                Caravana de Bandidos Detectada!
+              </div>
+              <p className="text-[#ebdcb2] text-[11px]">
+                Este bando se desloca em{" "}
+                <strong>{transportVisual.transportLabel}</strong> a{" "}
+                <strong>{entity.speedKmh.toFixed(1)} km/h</strong>. Você pode
+                interceptá-los agora ou manter distância.
+              </p>
+            </div>
+          )}
+
+          {/* FOOTER ACTIONS */}
+          <div className="flex items-center justify-end gap-2 pt-1">
+            {entity.type === "raider" && onTriggerHostileEncounter && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onTriggerHostileEncounter(entity);
+                }}
+                className="border-2 border-red-600 bg-[#3b1515] hover:bg-[#4d1b1b] px-4 py-2 text-xs font-black uppercase tracking-wider text-[#fef08a] cursor-pointer"
+              >
+                Interceptar & Engajar Bando
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="game-primary py-2 px-5 text-xs font-black uppercase tracking-wider cursor-pointer"
+            >
+              Seguir Viagem
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -494,6 +1318,9 @@ export function StrategicWorldMap({
   onStepMove,
   onEnter,
   onScavenge,
+  onTriggerHostileEncounter,
+  onRoadTradeBuy,
+  onShareWaterWithTraveler,
 }: {
   state: GameState;
   selected: SettlementId;
@@ -503,6 +1330,9 @@ export function StrategicWorldMap({
   onStepMove?: () => void;
   onEnter?: (id: SettlementId) => void;
   onScavenge?: (secretId: string) => void;
+  onTriggerHostileEncounter?: (entity: RovingEntity) => void;
+  onRoadTradeBuy?: (itemId: ItemId, price: number) => void;
+  onShareWaterWithTraveler?: () => void;
 }) {
   const position = getWorldPosition(state);
   const town = SETTLEMENTS[selected];
@@ -512,6 +1342,9 @@ export function StrategicWorldMap({
     y: number;
     snappedTown?: SettlementId | null;
   } | null>(null);
+  const [inspectedEntity, setInspectedEntity] = useState<RovingEntity | null>(
+    null
+  );
 
   const rad = (heading * Math.PI) / 180;
   const activeTarget = compassTarget ?? {
@@ -519,8 +1352,12 @@ export function StrategicWorldMap({
     y: position.y - Math.cos(rad) * 110,
     snappedTown: null,
   };
-  const measuredBearing = compassTarget ? getBearing(position, activeTarget) : heading;
-  const measuredDistance = compassTarget ? getDistanceKm(position, activeTarget) : 0;
+  const measuredBearing = compassTarget
+    ? getBearing(position, activeTarget)
+    : heading;
+  const measuredDistance = compassTarget
+    ? getDistanceKm(position, activeTarget)
+    : 0;
 
   const terrain = getTerrainAt(position);
   const speed = getCaravanSpeedBreakdown(state, terrain);
@@ -530,21 +1367,52 @@ export function StrategicWorldMap({
   const fuel = (measuredDistance / 10) * activeTransport.fuelLitersPer10Km;
   const nearby = getNearbySettlement(position);
   const nearbySecret = SECRET_LOCATIONS.find(
-    s =>
+    (s) =>
       (state.discoveredSecretIds ?? []).includes(s.id) &&
       !(state.clearedSecretIds ?? []).includes(s.id) &&
       Math.hypot(position.x - s.x, position.y - s.y) <= 35
   );
+  const moving = !!state.exploration?.isMoving && !state.exploration.isPaused;
 
-  // Key trade commodity price index for the selected settlement (without COMPRA/VENDA badges per user request)
-  const marketList: { name: string; base: number; mult: number; unit: string }[] = [
-    { name: "Água Purificada", base: 8, mult: town.priceMultipliers?.water ?? 1, unit: "1L" },
-    { name: "Rações de Milho", base: 12, mult: town.priceMultipliers?.food_rations ?? 1, unit: "1u" },
-    { name: "Gasolina Refinada", base: 38, mult: town.priceMultipliers?.gasoline ?? 1, unit: "1L" },
-    { name: "Couro Curado", base: 45, mult: town.priceMultipliers?.raw_leather ?? 1, unit: "1u" },
-    { name: "Minério de Cobre", base: 36, mult: town.priceMultipliers?.copper_ore ?? 1, unit: "1u" },
-    { name: "Ferramentas", base: 55, mult: town.priceMultipliers?.tools ?? 1, unit: "1u" },
-  ];
+  const marketList: { name: string; base: number; mult: number; unit: string }[] =
+    [
+      {
+        name: "Água Purificada",
+        base: 8,
+        mult: town.priceMultipliers?.water ?? 1,
+        unit: "1L",
+      },
+      {
+        name: "Rações de Milho",
+        base: 12,
+        mult: town.priceMultipliers?.food_rations ?? 1,
+        unit: "1u",
+      },
+      {
+        name: "Gasolina Refinada",
+        base: 38,
+        mult: town.priceMultipliers?.gasoline ?? 1,
+        unit: "1L",
+      },
+      {
+        name: "Couro Curado",
+        base: 45,
+        mult: town.priceMultipliers?.raw_leather ?? 1,
+        unit: "1u",
+      },
+      {
+        name: "Minério de Cobre",
+        base: 36,
+        mult: town.priceMultipliers?.copper_ore ?? 1,
+        unit: "1u",
+      },
+      {
+        name: "Ferramentas",
+        base: 55,
+        mult: town.priceMultipliers?.tools ?? 1,
+        unit: "1u",
+      },
+    ];
 
   const handleCompassMeasure = (target: {
     x: number;
@@ -553,7 +1421,11 @@ export function StrategicWorldMap({
     distanceKm: number;
     snappedTown: SettlementId | null;
   }) => {
-    setCompassTarget({ x: target.x, y: target.y, snappedTown: target.snappedTown });
+    setCompassTarget({
+      x: target.x,
+      y: target.y,
+      snappedTown: target.snappedTown,
+    });
     onHeading?.(target.bearing);
     if (target.snappedTown) {
       onSelect(target.snappedTown);
@@ -562,7 +1434,7 @@ export function StrategicWorldMap({
 
   return (
     <div className="h-full w-full flex flex-col lg:flex-row min-h-0 overflow-hidden gap-3">
-      {/* 1. CENTRAL MAP VIEWPORT (Framed in beveled military console bezel) */}
+      {/* 1. CENTRAL MAP VIEWPORT */}
       <div className="flex-1 min-h-0 relative flex flex-col justify-between caravan-screen-bezel p-1 overflow-hidden">
         <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-hidden">
           <WorldDrawing
@@ -572,6 +1444,7 @@ export function StrategicWorldMap({
             compassTarget={compassTarget}
             onCompassMeasure={handleCompassMeasure}
             onStepMove={onStepMove}
+            onSelectEntity={setInspectedEntity}
           />
         </div>
 
@@ -589,6 +1462,11 @@ export function StrategicWorldMap({
             <span className="text-emerald-400 font-bold">
               {speed.effectiveSpeedKmh.toFixed(1)} km/h
             </span>
+            {moving && (
+              <span className="rounded bg-emerald-950 border border-emerald-500 px-2 py-0.5 text-[10px] font-black text-emerald-300 animate-pulse">
+                EM MOVIMENTO FLUIDO
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -614,7 +1492,7 @@ export function StrategicWorldMap({
         </div>
       </div>
 
-      {/* 2. RIGHT CARAVANEER TACTICAL CONTEXT DOCK (Width: 340px) */}
+      {/* 2. RIGHT CARAVANEER TACTICAL CONTEXT DOCK */}
       <div className="w-80 lg:w-88 shrink-0 flex flex-col gap-2.5 overflow-y-auto pr-1">
         {/* Module A: Market Price Index (without COMPRA/VENDA badges) */}
         <section className="caravan-bezel p-3 space-y-2">
@@ -622,15 +1500,20 @@ export function StrategicWorldMap({
             <h4 className="text-[11px] font-black uppercase tracking-wider text-[#fde047]">
               Cotações Locais ({town.name})
             </h4>
-            <span className="text-[10px] font-mono text-[#95a38e]">Preço Médio</span>
+            <span className="text-[10px] font-mono text-[#95a38e]">
+              Preço Médio
+            </span>
           </div>
 
           <div className="caravan-gauge divide-y divide-[#273223] text-xs">
-            {marketList.map(item => {
+            {marketList.map((item) => {
               const price = Math.round(item.base * item.mult);
 
               return (
-                <div key={item.name} className="flex items-center justify-between py-1 px-1.5 font-mono">
+                <div
+                  key={item.name}
+                  className="flex items-center justify-between py-1 px-1.5 font-mono"
+                >
                   <span className="text-[#ebdcb2] text-[11px]">{item.name}</span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold text-[#fde047]">${price}</span>
@@ -641,55 +1524,77 @@ export function StrategicWorldMap({
           </div>
         </section>
 
-        {/* Module B: Compass Measurement, Step-by-Step Movement & Logistics */}
+        {/* Module B: Compass Measurement & Smooth Movement */}
         <section className="caravan-bezel p-3 space-y-2.5">
           <div className="flex items-center justify-between border-b border-[#3c4a35] pb-1">
             <h4 className="text-[11px] font-black uppercase tracking-wider text-[#fde047]">
               Bússola & Logística da Expedição
             </h4>
             <span className="text-[10px] font-mono text-emerald-400">
-              {compassTarget?.snappedTown ? SETTLEMENTS[compassTarget.snappedTown].name : "Rumo Livre"}
+              {compassTarget?.snappedTown
+                ? SETTLEMENTS[compassTarget.snappedTown].name
+                : "Rumo Livre"}
             </span>
           </div>
 
           <p className="text-[11px] text-[#c5b896] leading-snug">
-            Clique e arraste a bússola no mapa para calcular o grau até a cidade destino. Em seguida, avance clique a clique pelo mapa.
+            Clique e arraste a bússola até a cidade destino para calcular o grau
+            exato. Em seguida, inicie o deslocamento fluido no rumo calculado.
           </p>
 
           <div className="grid grid-cols-3 gap-1.5 text-center caravan-gauge p-1.5">
             <div>
-              <span className="text-[9px] text-[#95a38e] block uppercase">Grau (Rumo)</span>
-              <strong className="font-mono text-sm text-[#fde047]">{measuredBearing.toFixed(1)}°</strong>
+              <span className="text-[9px] text-[#95a38e] block uppercase">
+                Grau (Rumo)
+              </span>
+              <strong className="font-mono text-sm text-[#fde047]">
+                {measuredBearing.toFixed(1)}°
+              </strong>
             </div>
             <div>
-              <span className="text-[9px] text-[#95a38e] block uppercase">Distância</span>
-              <strong className="font-mono text-sm text-[#ebdcb2]">{measuredDistance.toFixed(1)} km</strong>
+              <span className="text-[9px] text-[#95a38e] block uppercase">
+                Distância
+              </span>
+              <strong className="font-mono text-sm text-[#ebdcb2]">
+                {measuredDistance.toFixed(1)} km
+              </strong>
             </div>
             <div>
-              <span className="text-[9px] text-[#95a38e] block uppercase">Tempo Est.</span>
-              <strong className="font-mono text-sm text-[#ebdcb2]">{hours.toFixed(1)} h</strong>
+              <span className="text-[9px] text-[#95a38e] block uppercase">
+                Tempo Est.
+              </span>
+              <strong className="font-mono text-sm text-[#ebdcb2]">
+                {hours.toFixed(1)} h
+              </strong>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-1.5 text-[11px] font-mono caravan-gauge p-2">
-            <span className="text-[#38bdf8]">Água ~{(upkeep.totalWaterPerDay * hours / 24).toFixed(1)} L</span>
-            <span className="text-[#ebdcb2]">Rações ~{(upkeep.humanFoodPerDay * hours / 24).toFixed(1)}</span>
-            <span className="text-[#a7f3d0]">Forragem ~{(upkeep.animalForagePerDay * hours / 24).toFixed(1)}</span>
+            <span className="text-[#38bdf8]">
+              Água ~{((upkeep.totalWaterPerDay * hours) / 24).toFixed(1)} L
+            </span>
+            <span className="text-[#ebdcb2]">
+              Rações ~{((upkeep.humanFoodPerDay * hours) / 24).toFixed(1)}
+            </span>
+            <span className="text-[#a7f3d0]">
+              Forragem ~{((upkeep.animalForagePerDay * hours) / 24).toFixed(1)}
+            </span>
             <span className="text-[#fb923c]">Gasolina {fuel.toFixed(1)} L</span>
           </div>
 
-          {/* Click-by-Click Step Button directly on General Map */}
           {onStepMove && (
             <button
               type="button"
               onClick={onStepMove}
               className="w-full py-2.5 px-3 rounded font-black text-xs uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-stone-950 border-2 border-amber-300 shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-y-0.5"
             >
-              <Footprints size={16} /> Mover 1 Passo no Rumo ({heading.toFixed(1)}°) [Clique]
+              <Footprints size={16} />{" "}
+              {moving
+                ? `Deslocando no Rumo (${heading.toFixed(1)}°)…`
+                : `Avançar Fluido no Rumo (${heading.toFixed(1)}°)`}
             </button>
           )}
 
-          {/* Secondary Action Button to Switch to Local Travel View */}
           <button
             type="button"
             onClick={onTravel}
@@ -699,10 +1604,20 @@ export function StrategicWorldMap({
           </button>
         </section>
       </div>
+
+      {inspectedEntity && (
+        <CaravanApproachModal
+          state={state}
+          entity={inspectedEntity}
+          onClose={() => setInspectedEntity(null)}
+          onTriggerHostileEncounter={onTriggerHostileEncounter}
+          onRoadTradeBuy={onRoadTradeBuy}
+          onShareWaterWithTraveler={onShareWaterWithTraveler}
+        />
+      )}
     </div>
   );
 }
-
 
 export function TravelScreen({
   state,
@@ -711,12 +1626,16 @@ export function TravelScreen({
   onHeading,
   onMove,
   onStepMove,
+  onGlideToPoint,
   onEnter,
   onCamp,
   rate,
   onRate,
   onScavenge,
   onRepair,
+  onTriggerHostileEncounter,
+  onRoadTradeBuy,
+  onShareWaterWithTraveler,
 }: {
   state: GameState;
   selected: SettlementId;
@@ -724,21 +1643,28 @@ export function TravelScreen({
   onHeading: (heading: number) => void;
   onMove: () => void;
   onStepMove?: () => void;
+  onGlideToPoint?: (x: number, y: number) => void;
   onEnter: (id: SettlementId) => void;
   onCamp: () => void;
   rate: number;
   onRate: (rate: number) => void;
   onScavenge?: (secretId: string) => void;
   onRepair?: (method: "tools" | "diesel_parts" | "depot") => void;
+  onTriggerHostileEncounter?: (entity: RovingEntity) => void;
+  onRoadTradeBuy?: (itemId: ItemId, price: number) => void;
+  onShareWaterWithTraveler?: () => void;
 }) {
   const heading = state.exploration?.heading ?? 0;
   const [draft, setDraft] = useState<string | null>(null);
+  const [inspectedEntity, setInspectedEntity] = useState<RovingEntity | null>(
+    null
+  );
   const dialRef = useRef<HTMLDivElement | null>(null);
   const dialDragRef = useRef(false);
   const position = getWorldPosition(state);
   const nearby = getNearbySettlement(position);
   const nearbySecret = SECRET_LOCATIONS.find(
-    s =>
+    (s) =>
       (state.discoveredSecretIds ?? []).includes(s.id) &&
       !(state.clearedSecretIds ?? []).includes(s.id) &&
       Math.hypot(position.x - s.x, position.y - s.y) <= 35
@@ -746,6 +1672,7 @@ export function TravelScreen({
   const moving = !!state.exploration?.isMoving && !state.exploration.isPaused;
   const terrain = getTerrainAt(position);
   const speed = getCaravanSpeedBreakdown(state, terrain);
+
   const commitHeading = () => {
     const n = Number(draft ?? heading);
     if (Number.isFinite(n)) {
@@ -760,10 +1687,20 @@ export function TravelScreen({
     const rect = el.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-    const deg = ((Math.atan2(clientX - cx, cy - clientY) * 180) / Math.PI + 360) % 360;
+    const deg =
+      ((Math.atan2(clientX - cx, cy - clientY) * 180) / Math.PI + 360) % 360;
     setDraft(null);
     onHeading(Math.round(deg * 10) / 10);
   };
+
+  // Closest roving caravans sorted by distance
+  const nearbyCaravans = [...(state.rovingEntities ?? [])]
+    .map((entity) => ({
+      entity,
+      distKm: getDistanceKm(position, { x: entity.x, y: entity.y }),
+    }))
+    .sort((a, b) => a.distKm - b.distKm)
+    .slice(0, 4);
 
   return (
     <div className="h-full w-full flex flex-col lg:flex-row min-h-0 overflow-hidden gap-3">
@@ -776,22 +1713,34 @@ export function TravelScreen({
             onSelect={onSelect}
             local
             onStepMove={onStepMove}
+            onGlideToPoint={onGlideToPoint}
+            onSelectEntity={setInspectedEntity}
           />
           <div className="pointer-events-none absolute top-2 left-2 rounded bg-[#141b12]/90 border border-[#4c5d43] px-2.5 py-1 text-[11px] font-mono font-bold text-[#fde047]">
-            Clique no mapa para avançar passo a passo no rumo ({heading.toFixed(1)}°)
+            {moving
+              ? `Caravana em movimento fluido (${heading.toFixed(1)}° · ${speed.effectiveSpeedKmh.toFixed(1)} km/h)`
+              : `Clique em qualquer ponto do mapa para navegar fluidamente (Rumo atual: ${heading.toFixed(1)}°)`}
           </div>
         </div>
 
         {/* BOTTOM ACTION & TELEMETRY BAR ON MAP */}
         <div className="bg-[#172016] border-t-2 border-[#3c4a35] p-2.5 flex flex-wrap items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-3 text-xs font-mono text-[#ebdcb2]">
-            <span className="font-bold text-[#fde047]">POS: {position.x.toFixed(1)}, {position.y.toFixed(1)}</span>
+            <span className="font-bold text-[#fde047]">
+              POS: {position.x.toFixed(1)}, {position.y.toFixed(1)}
+            </span>
             <span className="text-[#6d8065]">|</span>
-            <span className="uppercase text-[#93c5fd] font-bold">{terrain.replaceAll("_", " ")}</span>
+            <span className="uppercase text-[#93c5fd] font-bold">
+              {terrain.replaceAll("_", " ")}
+            </span>
             <span className="text-[#6d8065]">|</span>
-            <span className="text-emerald-400 font-bold">{speed.effectiveSpeedKmh.toFixed(1)} km/h</span>
+            <span className="text-emerald-400 font-bold">
+              {speed.effectiveSpeedKmh.toFixed(1)} km/h
+            </span>
             <span className="text-[#6d8065]">|</span>
-            <span>Dist: {(state.exploration?.distanceTravelledKm ?? 0).toFixed(1)} km</span>
+            <span>
+              Dist: {(state.exploration?.distanceTravelledKm ?? 0).toFixed(1)} km
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -802,7 +1751,7 @@ export function TravelScreen({
                 disabled={moving}
                 onClick={() => onEnter(nearby)}
               >
-                <MapPin size={14}/> Entrar em {SETTLEMENTS[nearby].name}
+                <MapPin size={14} /> Entrar em {SETTLEMENTS[nearby].name}
               </button>
             )}
             {nearbySecret && (
@@ -812,29 +1761,29 @@ export function TravelScreen({
                 disabled={moving}
                 onClick={() => onScavenge?.(nearbySecret.id)}
               >
-                <MapPin size={14}/> Saquear {nearbySecret.name}
+                <MapPin size={14} /> Saquear {nearbySecret.name}
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* RIGHT CARAVANEER TACTICAL COMPASS DOCK */}
+      {/* RIGHT CARAVANEER TACTICAL COMPASS & RADAR DOCK */}
       <div className="w-80 lg:w-88 shrink-0 flex flex-col gap-2.5 overflow-y-auto pr-1">
-        <div className="caravan-bezel p-3 space-y-2.5">
+        <div className="caravan-bezel p-2.5 space-y-2">
           {/* DRAGGABLE ANALOG COMPASS */}
           <div
             ref={dialRef}
-            onPointerDown={e => {
+            onPointerDown={(e) => {
               dialDragRef.current = true;
               e.currentTarget.setPointerCapture(e.pointerId);
               updateDialBearing(e.clientX, e.clientY);
             }}
-            onPointerMove={e => {
+            onPointerMove={(e) => {
               if (!dialDragRef.current) return;
               updateDialBearing(e.clientX, e.clientY);
             }}
-            onPointerUp={e => {
+            onPointerUp={(e) => {
               dialDragRef.current = false;
               try {
                 e.currentTarget.releasePointerCapture(e.pointerId);
@@ -843,27 +1792,59 @@ export function TravelScreen({
               }
             }}
             title="Clique e arraste para girar a agulha da bússola"
-            className="relative mx-auto h-32 w-32 rounded-full border-4 border-[#47573f] bg-[#c5b083] shadow-inner cursor-grab active:cursor-grabbing select-none"
+            className="relative mx-auto h-28 w-28 rounded-full border-4 border-[#47573f] bg-[#c5b083] shadow-inner cursor-grab active:cursor-grabbing select-none"
           >
-            <span className="absolute left-1/2 top-1 -translate-x-1/2 font-serif font-black text-xs text-[#141813]">N · 0°</span>
-            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#141813]">90°</span>
-            <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-bold text-[#141813]">180°</span>
-            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#141813]">270°</span>
-            <svg viewBox="0 0 160 160" className="h-full w-full pointer-events-none" aria-label={`Compass bearing ${heading.toFixed(1)} degrees`}>
+            <span className="absolute left-1/2 top-1 -translate-x-1/2 font-serif font-black text-[11px] text-[#141813]">
+              N · 0°
+            </span>
+            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-[#141813]">
+              90°
+            </span>
+            <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-bold text-[#141813]">
+              180°
+            </span>
+            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-[#141813]">
+              270°
+            </span>
+            <svg
+              viewBox="0 0 160 160"
+              className="h-full w-full pointer-events-none"
+              aria-label={`Compass bearing ${heading.toFixed(1)} degrees`}
+            >
               <g transform={`rotate(${heading} 80 80)`}>
-                <path d="M80 28L92 80 80 72 68 80Z" fill="#b91c1c" stroke="#450a0a" strokeWidth="1.2"/>
-                <path d="M80 132L92 80 80 88 68 80Z" fill="#1c251a" stroke="#141813" strokeWidth="1.2"/>
+                <path
+                  d="M80 28L92 80 80 72 68 80Z"
+                  fill="#b91c1c"
+                  stroke="#450a0a"
+                  strokeWidth="1.2"
+                />
+                <path
+                  d="M80 132L92 80 80 88 68 80Z"
+                  fill="#1c251a"
+                  stroke="#141813"
+                  strokeWidth="1.2"
+                />
               </g>
-              <circle cx="80" cy="80" r="7" fill="#fde047" stroke="#253022" strokeWidth="2"/>
+              <circle
+                cx="80"
+                cy="80"
+                r="7"
+                fill="#fde047"
+                stroke="#253022"
+                strokeWidth="2"
+              />
             </svg>
           </div>
 
           {/* BEARING INPUTS */}
-          <div className="caravan-gauge p-2.5 space-y-1.5">
-            <label htmlFor="travel-bearing" className="block text-[10px] font-black uppercase tracking-wider text-[#fde047]">
+          <div className="caravan-gauge p-2 space-y-1.5">
+            <label
+              htmlFor="travel-bearing"
+              className="block text-[10px] font-black uppercase tracking-wider text-[#fde047]"
+            >
               Rumo de Navegação (Graus)
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               <input
                 id="travel-bearing"
                 type="number"
@@ -871,55 +1852,130 @@ export function TravelScreen({
                 max="359.9"
                 step=".1"
                 value={draft ?? heading.toFixed(1)}
-                onChange={e => setDraft(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") commitHeading(); }}
-                className="game-input min-w-0 flex-1 text-sm py-1 font-bold"
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitHeading();
+                }}
+                className="game-input min-w-0 flex-1 text-xs py-1 font-bold"
               />
-              <button className="game-secondary py-1 px-3 text-xs font-bold" onClick={commitHeading}>Ajustar</button>
+              <button
+                className="game-secondary py-1 px-2.5 text-xs font-bold"
+                onClick={commitHeading}
+              >
+                Ajustar
+              </button>
             </div>
             <div className="grid grid-cols-4 gap-1">
               {[0, 90, 180, 270].map((h, i) => (
                 <button
                   key={h}
-                  className="game-secondary py-1 text-xs font-bold"
-                  onClick={() => { setDraft(null); onHeading(h); }}
+                  className="game-secondary py-0.5 text-xs font-bold"
+                  onClick={() => {
+                    setDraft(null);
+                    onHeading(h);
+                  }}
                 >
                   {["N", "L", "S", "O"][i]}
                 </button>
               ))}
             </div>
-            <div className="flex gap-1.5">
-              <button className="game-secondary flex-1 py-1 text-xs font-bold" onClick={() => onHeading((heading + 355) % 360)}>−5°</button>
-              <button className="game-secondary flex-1 py-1 text-xs font-bold" onClick={() => onHeading((heading + 5) % 360)}>+5°</button>
-            </div>
           </div>
 
-          {/* PRIMARY CLICK-BY-CLICK STEP MOVEMENT BUTTON */}
-          {onStepMove && (
+          {/* CONTINUOUS FLUID MARCH TOGGLE BUTTON */}
+          <button
+            className={`w-full justify-center py-2 text-xs font-black uppercase tracking-wider shadow cursor-pointer transition-all active:translate-y-0.5 ${
+              moving ? "game-secondary" : "game-primary"
+            }`}
+            onClick={onMove}
+          >
+            {moving ? <Pause size={15} /> : <Play size={15} />}
+            {moving
+              ? "Pausar Movimento [Espaço]"
+              : `Iniciar Marcha Fluida (${heading.toFixed(1)}°) [Espaço]`}
+          </button>
+
+          {/* SMOOTH SEGMENT GLIDE BUTTON */}
+          {onStepMove && !moving && (
             <button
               type="button"
               onClick={onStepMove}
-              className="w-full py-2.5 px-3 rounded font-black text-xs uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-stone-950 border-2 border-amber-300 shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-y-0.5"
+              className="w-full py-1.5 px-3 rounded font-black text-[11px] uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-stone-950 border-2 border-amber-300 shadow flex items-center justify-center gap-1.5 cursor-pointer transition-all active:translate-y-0.5"
             >
-              <Footprints size={16} /> Avançar 1 Passo ({heading.toFixed(1)}°) [Clique]
+              <Footprints size={14} /> Avançar Trecho Fluido ({heading.toFixed(1)}°)
             </button>
           )}
+        </div>
 
-          {/* CONTINUOUS TRAVEL TOGGLE BUTTON */}
-          <button
-            className={`w-full justify-center py-2 text-xs font-black uppercase tracking-wider shadow cursor-pointer transition-all active:translate-y-0.5 ${moving ? "game-secondary" : "game-primary"}`}
-            onClick={onMove}
-          >
-            {moving ? <Pause size={15}/> : <Play size={15}/>}
-            {moving ? "Parar Marcha Contínua [Espaço]" : "Marcha Contínua [Espaço]"}
-          </button>
+        {/* RADAR OF MOVING CARAVANS IN THE REGION */}
+        <div className="caravan-bezel p-2.5 space-y-1.5">
+          <div className="flex items-center justify-between border-b border-[#3c4a35] pb-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-[#fde047]">
+              Caravanas em Movimento (Radar)
+            </span>
+            <span className="text-[9px] font-mono text-[#95a38e]">
+              Estrada & Fora
+            </span>
+          </div>
+
+          <div className="space-y-1 max-h-40 overflow-y-auto pr-0.5">
+            {nearbyCaravans.map(({ entity, distKm }) => {
+              const meta = getEntityTypeMeta(entity.type);
+              const transportMeta = getEntityTransportVisual(entity);
+              return (
+                <div
+                  key={entity.id}
+                  onClick={() => setInspectedEntity(entity)}
+                  className="caravan-gauge px-2 py-1.5 border border-[#2d3829] hover:border-[#fde047] flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                >
+                  <div className="min-w-0 font-mono">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="px-1 py-0.2 text-[8px] font-black uppercase"
+                        style={{
+                          backgroundColor: meta.badgeColor,
+                          color: "#fef08a",
+                        }}
+                      >
+                        {meta.labelPt}
+                      </span>
+                      <span className="text-[10px] font-bold text-[#ebdcb2] truncate">
+                        {entity.name}
+                      </span>
+                    </div>
+                    <div className="text-[9px] text-[#95a38e] truncate">
+                      {transportMeta.transportLabel} · {entity.speedKmh.toFixed(1)} km/h ·{" "}
+                      {entity.routeMode === "offroad" ? "Fora da Estrada" : "Estrada"}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right font-mono">
+                    <div className="text-[10px] font-bold text-[#fde047]">
+                      {distKm.toFixed(1)} km
+                    </div>
+                    <span className="text-[8px] text-emerald-400 uppercase font-bold">
+                      Ver →
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* FLEET MAINTENANCE & CONDITIONS */}
-        <div className="caravan-bezel p-3 space-y-2">
+        <div className="caravan-bezel p-2.5 space-y-2">
           <div className="flex justify-between items-center text-xs border-b border-[#3c4a35] pb-1">
-            <span className="text-[11px] font-black uppercase tracking-wider text-[#fde047]">Condição da Frota:</span>
-            <span className={(state.vehicleCondition ?? 100) > 60 ? "text-emerald-400 font-bold" : (state.vehicleCondition ?? 100) > 25 ? "text-amber-400 font-bold" : "text-red-400 font-bold"}>
+            <span className="text-[10px] font-black uppercase tracking-wider text-[#fde047]">
+              Condição da Frota:
+            </span>
+            <span
+              className={
+                (state.vehicleCondition ?? 100) > 60
+                  ? "text-emerald-400 font-bold text-xs"
+                  : (state.vehicleCondition ?? 100) > 25
+                  ? "text-amber-400 font-bold text-xs"
+                  : "text-red-400 font-bold text-xs"
+              }
+            >
               {state.vehicleCondition ?? 100}%
             </span>
           </div>
@@ -930,8 +1986,9 @@ export function TravelScreen({
             </div>
           )}
 
-          {((state.inventory.tools ?? 0) > 0 || (state.inventory.diesel_parts ?? 0) > 0) && (
-            <div className="pt-1 flex flex-col gap-1.5">
+          {((state.inventory.tools ?? 0) > 0 ||
+            (state.inventory.diesel_parts ?? 0) > 0) && (
+            <div className="flex flex-col gap-1">
               {(state.inventory.tools ?? 0) > 0 && (
                 <button
                   type="button"
@@ -939,7 +1996,9 @@ export function TravelScreen({
                   onClick={() => onRepair?.("tools")}
                   className="game-secondary py-1 text-[11px] justify-between px-2"
                 >
-                  <span className="flex items-center gap-1"><Wrench size={12}/> Reparo de Trilha</span>
+                  <span className="flex items-center gap-1">
+                    <Wrench size={12} /> Reparo de Trilha
+                  </span>
                   <span className="text-emerald-400 font-bold">+35%</span>
                 </button>
               )}
@@ -950,43 +2009,53 @@ export function TravelScreen({
                   onClick={() => onRepair?.("diesel_parts")}
                   className="game-secondary py-1 text-[11px] justify-between px-2"
                 >
-                  <span className="flex items-center gap-1"><Wrench size={12}/> Substituir Peças</span>
+                  <span className="flex items-center gap-1">
+                    <Wrench size={12} /> Substituir Peças
+                  </span>
                   <span className="text-emerald-400 font-bold">+75%</span>
                 </button>
               )}
             </div>
           )}
 
-          <div className="pt-1 border-t border-[#3c4a35] space-y-2">
+          <div className="pt-1 border-t border-[#3c4a35] space-y-1.5">
             <div className="flex items-center justify-between text-xs">
-              <label htmlFor="travel-rate" className="text-[#ebdcb2] font-bold">Passo da Marcha:</label>
+              <label htmlFor="travel-rate" className="text-[#ebdcb2] font-bold">
+                Velocidade da Animação:
+              </label>
               <select
                 id="travel-rate"
                 className="game-input text-xs py-0.5 px-2 font-bold"
                 value={rate}
-                onChange={e => onRate(Number(e.target.value))}
+                onChange={(e) => onRate(Number(e.target.value))}
               >
                 <option value="1">1× (Normal)</option>
-                <option value="2">2× (Acelerado)</option>
-                <option value="4">4× (Disparada)</option>
+                <option value="2">2× (Rápido)</option>
+                <option value="4">4× (Expresso)</option>
               </select>
             </div>
 
             <button
-              className="game-secondary w-full justify-center py-1.5 text-xs font-bold"
+              className="game-secondary w-full justify-center py-1 text-xs font-bold"
               disabled={moving || !!state.currentSettlement}
               onClick={onCamp}
             >
-              <Tent size={14}/> Acampar por 6 horas (Descanso)
+              <Tent size={13} /> Acampar por 6 horas (Descanso)
             </button>
-          </div>
-
-          <div className="h-14 pt-1 flex items-center justify-center opacity-85">
-            <TransportIllustration transportId={state.transport} className="h-full w-full object-contain"/>
           </div>
         </div>
       </div>
+
+      {inspectedEntity && (
+        <CaravanApproachModal
+          state={state}
+          entity={inspectedEntity}
+          onClose={() => setInspectedEntity(null)}
+          onTriggerHostileEncounter={onTriggerHostileEncounter}
+          onRoadTradeBuy={onRoadTradeBuy}
+          onShareWaterWithTraveler={onShareWaterWithTraveler}
+        />
+      )}
     </div>
   );
 }
-

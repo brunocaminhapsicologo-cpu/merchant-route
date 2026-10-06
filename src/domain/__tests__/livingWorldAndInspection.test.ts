@@ -126,4 +126,33 @@ describe("Phase 3: Living World, Secret POIs & Contraband Gate Inspection", () =
     expect(result.state.freightContracts?.[0].completed).toBe(true);
     expect(result.state.passengerContracts?.[0].completed).toBe(true);
   });
+
+  it("populates road and off-road caravans (merchants, travelers, police on horses/cars, and bandits) with smooth sub-pixel movement", () => {
+    const state = createInitialGameState();
+    const entities = state.rovingEntities ?? [];
+    expect(entities.length).toBeGreaterThanOrEqual(12);
+
+    // Must include all 4 categories: trader, traveler, sheriff_patrol, raider
+    expect(entities.some((e) => e.type === "trader")).toBe(true);
+    expect(entities.some((e) => e.type === "traveler")).toBe(true);
+    expect(entities.some((e) => e.type === "sheriff_patrol")).toBe(true);
+    expect(entities.some((e) => e.type === "raider")).toBe(true);
+
+    // Must include both on-road and off-road caravans
+    expect(entities.some((e) => e.routeMode === "road")).toBe(true);
+    expect(entities.some((e) => e.routeMode === "offroad")).toBe(true);
+
+    // Police patrols must strictly use at least horses or cars (>= 10 km/h)
+    const policePatrols = entities.filter((e) => e.type === "sheriff_patrol");
+    expect(policePatrols.length).toBeGreaterThanOrEqual(3);
+    for (const patrol of policePatrols) {
+      expect(patrol.speedKmh).toBeGreaterThanOrEqual(10);
+      expect(patrol.transportLabel).toMatch(/Cavalo|Viatura/i);
+    }
+
+    // Sub-pixel smooth movement on small animation slices
+    const microAdvanced = advanceRovingEntities(entities, 0.015);
+    expect(microAdvanced.some((e) => !Number.isInteger(e.x) || !Number.isInteger(e.y))).toBe(true);
+  });
 });
+
