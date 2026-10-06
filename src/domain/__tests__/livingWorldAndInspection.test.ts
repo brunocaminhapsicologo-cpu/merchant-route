@@ -1,13 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   advanceExploration,
-  advanceGameTime,
   advanceRovingEntities,
   scavengeSecretLocation,
 } from "../navigationEngine";
 import { completeContractsAtSettlement } from "../economyEngine";
-import { createInitialGameState, SECRET_LOCATIONS, SETTLEMENTS } from "../worldData";
-import { FreightContract, PassengerContract, RovingEntity } from "../types";
+import { createInitialGameState, SECRET_LOCATIONS } from "../worldData";
+import { FreightContract, ItemId, PassengerContract, RovingEntity } from "../types";
 
 describe("Phase 3: Living World, Secret POIs & Contraband Gate Inspection", () => {
   it("discovers uncharted landmarks when caravan passes within perception radius", () => {
@@ -52,7 +51,7 @@ describe("Phase 3: Living World, Secret POIs & Contraband Gate Inspection", () =
     expect(scavenged.clearedSecretIds).toContain(secret.id);
     expect(scavenged.cash).toBe(startingCash + secret.lootCash);
     for (const [itemId, qty] of Object.entries(secret.lootItems)) {
-      expect((scavenged.inventory as any)[itemId]).toBeGreaterThanOrEqual(qty!);
+      expect(scavenged.inventory[itemId as ItemId]).toBeGreaterThanOrEqual(qty!);
     }
 
     // Attempt second scavenge on same secret
@@ -72,6 +71,7 @@ describe("Phase 3: Living World, Secret POIs & Contraband Gate Inspection", () =
         targetY: 100,
         speedKmh: 10,
         heading: 90,
+        description: "Test merchant caravan",
       },
     ];
 
@@ -123,7 +123,7 @@ describe("Phase 3: Living World, Secret POIs & Contraband Gate Inspection", () =
     expect(result.totalPayout).toBe(350 + 180);
     expect(result.state.cash).toBe(initialCash + 530);
     expect(result.state.inventory.antibiotics).toBe(1); // 3 - 2 delivered
-    expect(result.state.freightContracts[0].completed).toBe(true);
-    expect(result.state.passengerContracts[0].completed).toBe(true);
+    expect(result.state.freightContracts?.[0].completed).toBe(true);
+    expect(result.state.passengerContracts?.[0].completed).toBe(true);
   });
 });

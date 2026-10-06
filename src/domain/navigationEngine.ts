@@ -253,3 +253,53 @@ export function scavengeSecretLocation(state: GameState, secretId: string): Game
     journalLogs,
   };
 }
+
+/** Advances the caravan by one discrete click-step along its compass heading and pauses. */
+export function stepExploration(
+  state: GameState,
+  hours = 0.75,
+  headingOverride?: number
+): GameState {
+  if (
+    !Number.isFinite(hours) ||
+    hours <= 0 ||
+    state.pendingEncounter ||
+    state.combatState
+  ) {
+    return state;
+  }
+  const pos = getWorldPosition(state);
+  const heading =
+    headingOverride !== undefined && Number.isFinite(headingOverride)
+      ? ((headingOverride % 360) + 360) % 360
+      : ((state.exploration?.heading ?? 0) % 360 + 360) % 360;
+
+  const prepared: GameState = {
+    ...state,
+    currentSettlement: null,
+    travelState: null,
+    exploration: {
+      x: pos.x,
+      y: pos.y,
+      terrain: getTerrainAt(pos),
+      distanceTravelledKm: state.exploration?.distanceTravelledKm ?? 0,
+      ...state.exploration,
+      heading,
+      isMoving: true,
+      isPaused: false,
+    },
+  };
+
+  const stepped = advanceExploration(prepared, hours);
+  if (!stepped.exploration) return stepped;
+
+  return {
+    ...stepped,
+    exploration: {
+      ...stepped.exploration,
+      isMoving: false,
+      isPaused: true,
+    },
+  };
+}
+

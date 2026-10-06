@@ -1,25 +1,153 @@
 "use client";
 
-import { useState } from "react";
-import { Compass, MapPin, Pause, Play, Tent, Wrench } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { Compass, Footprints, MapPin, Pause, Play, Tent, Wrench } from "lucide-react";
 import { TransportIllustration } from "@/assets/caravaneerSprites";
 import { GameState, SettlementId } from "@/domain/types";
 import { SETTLEMENTS, ROUTES, SECRET_LOCATIONS } from "@/domain/worldData";
 import { getCaravanSpeedBreakdown, getDailyUpkeepSummary, getActiveTransportDefinition } from "@/domain/economyEngine";
 import { getBearing, getDistanceKm, getNearbySettlement, getTerrainAt, getWorldPosition } from "@/domain/navigationEngine";
 
-export function WorldDrawing({ state, selected, onSelect, local = false }: { state: GameState; selected: SettlementId; onSelect: (id: SettlementId) => void; local?: boolean }) {
+export function WorldDrawing({
+  state,
+  selected,
+  onSelect,
+  local = false,
+  compassTarget,
+  onCompassMeasure,
+  onStepMove,
+}: {
+  state: GameState;
+  selected: SettlementId;
+  onSelect: (id: SettlementId) => void;
+  local?: boolean;
+  compassTarget?: { x: number; y: number; snappedTown?: SettlementId | null } | null;
+  onCompassMeasure?: (target: { x: number; y: number; bearing: number; distanceKm: number; snappedTown: SettlementId | null }) => void;
+  onStepMove?: () => void;
+}) {
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const dragStateRef = useRef<{
+    active: boolean;
+    startClientX: number;
+    startClientY: number;
+    hasDragged: boolean;
+  }>({ active: false, startClientX: 0, startClientY: 0, hasDragged: false });
+  const [isDraggingCompass, setIsDraggingCompass] = useState(false);
+
   const position = getWorldPosition(state);
-  const destination = SETTLEMENTS[selected];
+  const heading = state.exploration?.heading ?? 0;
   // Expanded viewBox prevents bottom edge clipping (New Chicago at y:650 has 110px padding)
   const viewBox = local ? `${position.x - 150} ${position.y - 110} 300 220` : "-20 -20 1040 780";
 
+  // Calculate default compass vector endpoint if user hasn't dragged a custom point yet
+  const rad = (heading * Math.PI) / 180;
+  const activeTarget = compassTarget ?? {
+    x: position.x + Math.sin(rad) * 110,
+    y: position.y - Math.cos(rad) * 110,
+    snappedTown: null,
+  };
+  const measuredBearing = getBearing(position, activeTarget);
+  const measuredDistanceKm = getDistanceKm(position, activeTarget);
+
+  const clientToSvgPoint = (clientX: number, clientY: number): { x: number; y: number } | null => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return null;
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const transformed = pt.matrixTransform(ctm.inverse());
+    return {
+      x: Math.max(0, Math.min(1000, transformed.x)),
+      y: Math.max(0, Math.min(680, transformed.y)),
+    };
+  };
+
+  const resolveCompassPoint = (rawPt: { x: number; y: number }) => {
+    // Snap to settlement coordinates when dragging near a city center so player gets exact bearing
+    let snappedTown: SettlementId | null = null;
+    let targetX = rawPt.x;
+    let targetY = rawPt.y;
+    let bestDist = 24;
+    for (const town of Object.values(SETTLEMENTS)) {
+      const d = Math.hypot(rawPt.x - town.coordinates.x, rawPt.y - town.coordinates.y);
+      if (d <= bestDist) {
+        bestDist = d;
+        targetX = town.coordinates.x;
+        targetY = town.coordinates.y;
+        snappedTown = town.id;
+      }
+    }
+    const bearing = getBearing(position, { x: targetX, y: targetY });
+    const distanceKm = getDistanceKm(position, { x: targetX, y: targetY });
+    return { x: targetX, y: targetY, bearing, distanceKm, snappedTown };
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (local) return;
+    dragStateRef.current = {
+      active: true,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      hasDragged: false,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (local || !dragStateRef.current.active) return;
+    const movedPx = Math.hypot(
+      e.clientX - dragStateRef.current.startClientX,
+      e.clientY - dragStateRef.current.startClientY
+    );
+    if (movedPx >= 5 || dragStateRef.current.hasDragged) {
+      dragStateRef.current.hasDragged = true;
+      setIsDraggingCompass(true);
+      const svgPt = clientToSvgPoint(e.clientX, e.clientY);
+      if (svgPt && onCompassMeasure) {
+        const resolved = resolveCompassPoint(svgPt);
+        onCompassMeasure(resolved);
+      }
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (local) {
+      onStepMove?.();
+      return;
+    }
+    if (!dragStateRef.current.active) return;
+    const wasDrag = dragStateRef.current.hasDragged;
+    dragStateRef.current.active = false;
+    setIsDraggingCompass(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore if not captured
+    }
+    if (!wasDrag) {
+      // A discrete click on the map steps the caravan 1 click along the current compass bearing
+      onStepMove?.();
+    }
+  };
+
   return (
     <svg
+      ref={svgRef}
       viewBox={viewBox}
       role="img"
-      aria-label={local ? "Surrounding desert and nearby settlements" : "World atlas with settlements and bearing measurement"}
-      className="w-full h-full max-h-full max-w-full object-contain rounded select-none"
+      aria-label={local ? "Surrounding desert and nearby settlements — click to advance step by step" : "World atlas with interactive draggable compass and click-by-click movement"}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      className={`w-full h-full max-h-full max-w-full object-contain rounded select-none ${
+        local
+          ? "cursor-pointer"
+          : isDraggingCompass
+          ? "cursor-crosshair"
+          : "cursor-grab"
+      }`}
     >
       <defs>
         {/* Authentic Cracked Desert Terrain Pattern */}
@@ -95,19 +223,6 @@ export function WorldDrawing({ state, selected, onSelect, local = false }: { sta
         );
       })}
 
-      {/* Destination Bearing Red Dashed Vector */}
-      {!local && (
-        <line
-          x1={position.x}
-          y1={position.y}
-          x2={destination.coordinates.x}
-          y2={destination.coordinates.y}
-          stroke="#dc2626"
-          strokeDasharray="9 6"
-          strokeWidth="3"
-        />
-      )}
-
       {/* Settlements with Tactical Badges */}
       {Object.values(SETTLEMENTS).map(town => {
         const isSelected = selected === town.id;
@@ -131,8 +246,8 @@ export function WorldDrawing({ state, selected, onSelect, local = false }: { sta
                 cy={town.coordinates.y}
                 r={local ? 14 : 22}
                 fill="none"
-                stroke="#ef4444"
-                strokeWidth="2.5"
+                stroke="#fde047"
+                strokeWidth="2"
                 strokeDasharray="4 3"
               />
             )}
@@ -143,7 +258,7 @@ export function WorldDrawing({ state, selected, onSelect, local = false }: { sta
               cy={town.coordinates.y}
               r={local ? 8 : 14}
               fill={isMajor ? "#1c2a33" : "#4a2d16"}
-              stroke={isSelected ? "#ef4444" : isMajor ? "#60a5fa" : "#fde047"}
+              stroke={isSelected ? "#fde047" : isMajor ? "#60a5fa" : "#fde047"}
               strokeWidth={isSelected ? 3 : 2.5}
             />
 
@@ -162,7 +277,7 @@ export function WorldDrawing({ state, selected, onSelect, local = false }: { sta
                 height="18"
                 rx="3"
                 fill="#161d14"
-                stroke={isSelected ? "#ef4444" : "#44553c"}
+                stroke={isSelected ? "#fde047" : "#44553c"}
                 strokeWidth="1.2"
                 opacity="0.95"
               />
@@ -207,17 +322,122 @@ export function WorldDrawing({ state, selected, onSelect, local = false }: { sta
         );
       })}
 
+      {/* INTERACTIVE DRAGGABLE COMPASS & PROTRACTOR ON GENERAL MAP */}
+      {!local && (
+        <g className="select-none">
+          {/* Outer Protractor Ring Centered on Caravan */}
+          <g transform={`translate(${position.x} ${position.y})`}>
+            <circle
+              r="58"
+              fill="rgba(20, 27, 18, 0.28)"
+              stroke="#fde047"
+              strokeWidth="1.5"
+              strokeDasharray="4 2"
+            />
+            <circle
+              r="44"
+              fill="none"
+              stroke="#4ade80"
+              strokeWidth="1"
+              opacity="0.6"
+            />
+            {/* Degree Tick Marks around Protractor */}
+            {Array.from({ length: 12 }).map((_, i) => {
+              const deg = i * 30;
+              const a = (deg * Math.PI) / 180;
+              const x1 = Math.sin(a) * 52;
+              const y1 = -Math.cos(a) * 52;
+              const x2 = Math.sin(a) * 58;
+              const y2 = -Math.cos(a) * 58;
+              return (
+                <line
+                  key={deg}
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke="#fde047"
+                  strokeWidth={deg % 90 === 0 ? "2" : "1"}
+                />
+              );
+            })}
+            <text x="0" y="-63" textAnchor="middle" fill="#fde047" fontSize="10" fontWeight="900" fontFamily="monospace" paintOrder="stroke" stroke="#141813" strokeWidth="3">N 0°</text>
+            <text x="68" y="3" textAnchor="start" fill="#fde047" fontSize="9" fontWeight="900" fontFamily="monospace" paintOrder="stroke" stroke="#141813" strokeWidth="3">90° L</text>
+            <text x="0" y="71" textAnchor="middle" fill="#fde047" fontSize="9" fontWeight="900" fontFamily="monospace" paintOrder="stroke" stroke="#141813" strokeWidth="3">S 180°</text>
+            <text x="-68" y="3" textAnchor="end" fill="#fde047" fontSize="9" fontWeight="900" fontFamily="monospace" paintOrder="stroke" stroke="#141813" strokeWidth="3">270° O</text>
+          </g>
+
+          {/* Measured Compass Vector Line from Caravan to Dragged Target */}
+          <line
+            x1={position.x}
+            y1={position.y}
+            x2={activeTarget.x}
+            y2={activeTarget.y}
+            stroke="#f59e0b"
+            strokeWidth="3"
+            strokeDasharray="7 4"
+          />
+
+          {/* Draggable Compass Tip Handle */}
+          <g transform={`translate(${activeTarget.x} ${activeTarget.y})`}>
+            <circle
+              r="11"
+              fill="rgba(245, 158, 11, 0.25)"
+              stroke="#fde047"
+              strokeWidth="2"
+            />
+            <circle r="4" fill="#fde047" />
+            {/* Readout Badge next to Compass Tip */}
+            <g transform="translate(14, -18)">
+              <rect
+                x="0"
+                y="-12"
+                width={activeTarget.snappedTown ? 195 : 142}
+                height="24"
+                rx="4"
+                fill="#141b12"
+                stroke="#fde047"
+                strokeWidth="1.5"
+                opacity="0.95"
+              />
+              <text
+                x="7"
+                y="4"
+                fill="#fde047"
+                fontSize="10"
+                fontWeight="900"
+                fontFamily="ui-monospace, monospace"
+              >
+                {measuredBearing.toFixed(1)}° · {measuredDistanceKm.toFixed(1)} km
+                {activeTarget.snappedTown ? ` [${SETTLEMENTS[activeTarget.snappedTown].name}]` : ""}
+              </text>
+            </g>
+          </g>
+        </g>
+      )}
+
       {/* Caravan Convoy Icon and Radar Ring */}
       <g transform={`translate(${position.x} ${position.y})`}>
+        {local && (
+          <line
+            x1="0"
+            y1="0"
+            x2={Math.sin(rad) * 75}
+            y2={-Math.cos(rad) * 75}
+            stroke="#f59e0b"
+            strokeWidth="2"
+            strokeDasharray="5 4"
+          />
+        )}
         <circle r={local ? 12 : 15} fill="#273826" stroke="#fde047" strokeWidth="2.5"/>
-        <path d="M0-11L6 6 0 3-6 6Z" fill="#fde047" transform={`rotate(${state.exploration?.heading ?? 0})`}/>
+        <path d="M0-11L6 6 0 3-6 6Z" fill="#fde047" transform={`rotate(${heading})`}/>
         {/* Radar Ring */}
         <circle r={local ? 70 : 35} fill="none" stroke="#22c55e" strokeDasharray="3 5" strokeWidth="1" opacity="0.75"/>
         {!local && (
-          <g transform="translate(18, -14)">
-            <rect x="0" y="-10" width="115" height="18" rx="2" fill="#141b12" stroke="#4ade80" strokeWidth="1" opacity="0.9" />
+          <g transform="translate(18, 22)">
+            <rect x="0" y="-10" width="125" height="18" rx="2" fill="#141b12" stroke="#4ade80" strokeWidth="1" opacity="0.9" />
             <text x="6" y="3" fill="#4ade80" fontSize="9" fontWeight="bold" fontFamily="monospace">
-              CARAVAN [{position.x.toFixed(0)}, {position.y.toFixed(0)}]
+              CARAVANA [{position.x.toFixed(0)}, {position.y.toFixed(0)}]
             </text>
           </g>
         )}
@@ -226,11 +446,11 @@ export function WorldDrawing({ state, selected, onSelect, local = false }: { sta
       {/* Atlas Header & Corner Elements */}
       {!local && (
         <>
-          {/* Stamped Map Title */}
+          {/* Stamped Map Title & Instructions */}
           <g transform="translate(30, 35)">
-            <rect x="0" y="-16" width="280" height="26" rx="3" fill="#161e14" stroke="#4c5d43" strokeWidth="1.5" opacity="0.92"/>
-            <text x="12" y="3" fill="#fde047" fontSize="13" fontWeight="900" letterSpacing="0.1em" fontFamily="ui-monospace, monospace">
-              ★ WASTELAND STRATEGIC ATLAS
+            <rect x="0" y="-16" width="520" height="28" rx="3" fill="#161e14" stroke="#4c5d43" strokeWidth="1.5" opacity="0.92"/>
+            <text x="12" y="2" fill="#fde047" fontSize="11" fontWeight="900" letterSpacing="0.06em" fontFamily="ui-monospace, monospace">
+              ★ ARRASTE A BÚSSOLA ATÉ A CIDADE PARA CALCULAR O GRAU · CLIQUE PARA MOVER PASSO A PASSO
             </text>
           </g>
 
@@ -265,19 +485,58 @@ export function WorldDrawing({ state, selected, onSelect, local = false }: { sta
   );
 }
 
-export function StrategicWorldMap({ state, selected, onSelect, onTravel }: { state: GameState; selected: SettlementId; onSelect: (id: SettlementId) => void; onTravel: () => void }) {
+export function StrategicWorldMap({
+  state,
+  selected,
+  onSelect,
+  onTravel,
+  onHeading,
+  onStepMove,
+  onEnter,
+  onScavenge,
+}: {
+  state: GameState;
+  selected: SettlementId;
+  onSelect: (id: SettlementId) => void;
+  onTravel: () => void;
+  onHeading?: (heading: number) => void;
+  onStepMove?: () => void;
+  onEnter?: (id: SettlementId) => void;
+  onScavenge?: (secretId: string) => void;
+}) {
   const position = getWorldPosition(state);
   const town = SETTLEMENTS[selected];
-  const distance = getDistanceKm(position, town.coordinates);
-  const bearing = getBearing(position, town.coordinates);
+  const heading = state.exploration?.heading ?? 0;
+  const [compassTarget, setCompassTarget] = useState<{
+    x: number;
+    y: number;
+    snappedTown?: SettlementId | null;
+  } | null>(null);
+
+  const rad = (heading * Math.PI) / 180;
+  const activeTarget = compassTarget ?? {
+    x: position.x + Math.sin(rad) * 110,
+    y: position.y - Math.cos(rad) * 110,
+    snappedTown: null,
+  };
+  const measuredBearing = compassTarget ? getBearing(position, activeTarget) : heading;
+  const measuredDistance = compassTarget ? getDistanceKm(position, activeTarget) : 0;
+
   const terrain = getTerrainAt(position);
   const speed = getCaravanSpeedBreakdown(state, terrain);
-  const hours = distance / Math.max(0.1, speed.effectiveSpeedKmh);
+  const hours = measuredDistance / Math.max(0.1, speed.effectiveSpeedKmh);
   const upkeep = getDailyUpkeepSummary(state);
   const activeTransport = getActiveTransportDefinition(state);
-  const fuel = distance / 10 * activeTransport.fuelLitersPer10Km;
+  const fuel = (measuredDistance / 10) * activeTransport.fuelLitersPer10Km;
+  const nearby = getNearbySettlement(position);
+  const nearbySecret = SECRET_LOCATIONS.find(
+    s =>
+      (state.discoveredSecretIds ?? []).includes(s.id) &&
+      !(state.clearedSecretIds ?? []).includes(s.id) &&
+      Math.hypot(position.x - s.x, position.y - s.y) <= 35
+  );
 
-  // Key trade commodity price index for the selected settlement
+  // Key trade commodity price index for the selected settlement (without COMPRA/VENDA badges per user request)
   const marketList: { name: string; base: number; mult: number; unit: string }[] = [
     { name: "Água Purificada", base: 8, mult: town.priceMultipliers?.water ?? 1, unit: "1L" },
     { name: "Rações de Milho", base: 12, mult: town.priceMultipliers?.food_rations ?? 1, unit: "1u" },
@@ -287,54 +546,81 @@ export function StrategicWorldMap({ state, selected, onSelect, onTravel }: { sta
     { name: "Ferramentas", base: 55, mult: town.priceMultipliers?.tools ?? 1, unit: "1u" },
   ];
 
+  const handleCompassMeasure = (target: {
+    x: number;
+    y: number;
+    bearing: number;
+    distanceKm: number;
+    snappedTown: SettlementId | null;
+  }) => {
+    setCompassTarget({ x: target.x, y: target.y, snappedTown: target.snappedTown });
+    onHeading?.(target.bearing);
+    if (target.snappedTown) {
+      onSelect(target.snappedTown);
+    }
+  };
+
   return (
     <div className="h-full w-full flex flex-col lg:flex-row min-h-0 overflow-hidden gap-3">
       {/* 1. CENTRAL MAP VIEWPORT (Framed in beveled military console bezel) */}
-      <div className="flex-1 min-h-0 relative flex flex-col items-center justify-center caravan-screen-bezel p-1 overflow-hidden">
-        <WorldDrawing state={state} selected={selected} onSelect={onSelect} />
+      <div className="flex-1 min-h-0 relative flex flex-col justify-between caravan-screen-bezel p-1 overflow-hidden">
+        <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-hidden">
+          <WorldDrawing
+            state={state}
+            selected={selected}
+            onSelect={onSelect}
+            compassTarget={compassTarget}
+            onCompassMeasure={handleCompassMeasure}
+            onStepMove={onStepMove}
+          />
+        </div>
+
+        {/* Bottom Map Telemetry & Gate Arrival Bar */}
+        <div className="bg-[#172016] border-t-2 border-[#3c4a35] px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 shrink-0 text-xs font-mono">
+          <div className="flex items-center gap-3 text-[#ebdcb2]">
+            <span className="font-bold text-[#fde047]">
+              POS: {position.x.toFixed(1)}, {position.y.toFixed(1)}
+            </span>
+            <span className="text-[#6d8065]">|</span>
+            <span className="text-amber-300 font-bold">
+              RUMO ATUAL: {heading.toFixed(1)}°
+            </span>
+            <span className="text-[#6d8065]">|</span>
+            <span className="text-emerald-400 font-bold">
+              {speed.effectiveSpeedKmh.toFixed(1)} km/h
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {nearby && onEnter && (
+              <button
+                type="button"
+                onClick={() => onEnter(nearby)}
+                className="py-1 px-3 rounded font-black text-xs uppercase tracking-wider bg-[#3f5038] hover:bg-[#4f6446] text-[#fef08a] border-2 border-[#6d885f] shadow flex items-center gap-1.5 cursor-pointer"
+              >
+                <MapPin size={14} /> Entrar em {SETTLEMENTS[nearby].name}
+              </button>
+            )}
+            {nearbySecret && onScavenge && (
+              <button
+                type="button"
+                onClick={() => onScavenge(nearbySecret.id)}
+                className="py-1 px-3 rounded font-black text-xs uppercase tracking-wider bg-amber-700 hover:bg-amber-600 text-stone-950 border-2 border-amber-500 shadow flex items-center gap-1.5 cursor-pointer"
+              >
+                <MapPin size={14} /> Saquear {nearbySecret.name}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* 2. RIGHT CARAVANEER TACTICAL CONTEXT DOCK (Width: 340px) */}
       <div className="w-80 lg:w-88 shrink-0 flex flex-col gap-2.5 overflow-y-auto pr-1">
-        {/* Module A: Active Settlement Dossier */}
-        <section className="caravan-bezel p-3 space-y-2">
-          <div className="flex items-center justify-between border-b border-[#3c4a35] pb-1.5">
-            <span className="text-[11px] font-black uppercase tracking-wider text-[#fde047]">
-              Destino Selecionado
-            </span>
-            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${town.tier === "major_city" ? "bg-sky-950 text-sky-300 border border-sky-700" : "bg-amber-950 text-amber-300 border border-amber-800"}`}>
-              {town.tier === "major_city" ? "Metrópole" : "Posto Avançado"}
-            </span>
-          </div>
-
-          <select
-            id="atlas-destination"
-            className="game-input w-full text-xs py-1.5 font-bold"
-            value={selected}
-            onChange={e => onSelect(e.target.value as SettlementId)}
-          >
-            {Object.values(SETTLEMENTS).map(t => (
-              <option key={t.id} value={t.id}>{t.name} ({t.tier === "major_city" ? "Metrópole" : "Posto"})</option>
-            ))}
-          </select>
-
-          <div className="caravan-gauge p-2.5 space-y-1">
-            <div className="flex items-center justify-between">
-              <h3 className="font-extrabold text-base text-[#fde047]">{town.name}</h3>
-              <span className="text-xs font-mono font-bold text-[#ebdcb2]">{distance.toFixed(1)} km</span>
-            </div>
-            <p className="text-[11px] text-[#c5b896] leading-relaxed line-clamp-3">{town.lore}</p>
-            <div className="pt-1.5 border-t border-[#2d3728] text-[10px] text-emerald-400 font-mono">
-              Produz: {town.produces.map(id => id.replaceAll("_", " ")).join(", ")}
-            </div>
-          </div>
-        </section>
-
-        {/* Module B: Market Price Index (Caravaneer 2 Style) */}
+        {/* Module A: Market Price Index (without COMPRA/VENDA badges) */}
         <section className="caravan-bezel p-3 space-y-2">
           <div className="flex items-center justify-between border-b border-[#3c4a35] pb-1">
             <h4 className="text-[11px] font-black uppercase tracking-wider text-[#fde047]">
-              Cotações Locais (Market Index)
+              Cotações Locais ({town.name})
             </h4>
             <span className="text-[10px] font-mono text-[#95a38e]">Preço Médio</span>
           </div>
@@ -342,24 +628,12 @@ export function StrategicWorldMap({ state, selected, onSelect, onTravel }: { sta
           <div className="caravan-gauge divide-y divide-[#273223] text-xs">
             {marketList.map(item => {
               const price = Math.round(item.base * item.mult);
-              const isCheap = item.mult < 0.85;
-              const isExpensive = item.mult > 1.25;
 
               return (
                 <div key={item.name} className="flex items-center justify-between py-1 px-1.5 font-mono">
                   <span className="text-[#ebdcb2] text-[11px]">{item.name}</span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold text-[#fde047]">${price}</span>
-                    {isCheap && (
-                      <span className="text-[9px] px-1 rounded bg-emerald-900/80 text-emerald-300 font-sans font-bold" title="Preço Baixo: Bom para comprar">
-                        COMPRA
-                      </span>
-                    )}
-                    {isExpensive && (
-                      <span className="text-[9px] px-1 rounded bg-rose-900/80 text-rose-300 font-sans font-bold" title="Preço Alto: Bom para vender">
-                        VENDA
-                      </span>
-                    )}
                   </div>
                 </div>
               );
@@ -367,20 +641,29 @@ export function StrategicWorldMap({ state, selected, onSelect, onTravel }: { sta
           </div>
         </section>
 
-        {/* Module C: Ruler, Logistics & Travel Action */}
-        <section className="caravan-bezel p-3 space-y-2">
-          <h4 className="text-[11px] font-black uppercase tracking-wider text-[#fde047]">
-            Logística da Expedição
-          </h4>
+        {/* Module B: Compass Measurement, Step-by-Step Movement & Logistics */}
+        <section className="caravan-bezel p-3 space-y-2.5">
+          <div className="flex items-center justify-between border-b border-[#3c4a35] pb-1">
+            <h4 className="text-[11px] font-black uppercase tracking-wider text-[#fde047]">
+              Bússola & Logística da Expedição
+            </h4>
+            <span className="text-[10px] font-mono text-emerald-400">
+              {compassTarget?.snappedTown ? SETTLEMENTS[compassTarget.snappedTown].name : "Rumo Livre"}
+            </span>
+          </div>
+
+          <p className="text-[11px] text-[#c5b896] leading-snug">
+            Clique e arraste a bússola no mapa para calcular o grau até a cidade destino. Em seguida, avance clique a clique pelo mapa.
+          </p>
 
           <div className="grid grid-cols-3 gap-1.5 text-center caravan-gauge p-1.5">
             <div>
-              <span className="text-[9px] text-[#95a38e] block uppercase">Rumo</span>
-              <strong className="font-mono text-sm text-[#fde047]">{bearing.toFixed(1)}°</strong>
+              <span className="text-[9px] text-[#95a38e] block uppercase">Grau (Rumo)</span>
+              <strong className="font-mono text-sm text-[#fde047]">{measuredBearing.toFixed(1)}°</strong>
             </div>
             <div>
               <span className="text-[9px] text-[#95a38e] block uppercase">Distância</span>
-              <strong className="font-mono text-sm text-[#ebdcb2]">{distance.toFixed(1)} km</strong>
+              <strong className="font-mono text-sm text-[#ebdcb2]">{measuredDistance.toFixed(1)} km</strong>
             </div>
             <div>
               <span className="text-[9px] text-[#95a38e] block uppercase">Tempo Est.</span>
@@ -395,13 +678,24 @@ export function StrategicWorldMap({ state, selected, onSelect, onTravel }: { sta
             <span className="text-[#fb923c]">Gasolina {fuel.toFixed(1)} L</span>
           </div>
 
-          {/* Prominent Action Button */}
+          {/* Click-by-Click Step Button directly on General Map */}
+          {onStepMove && (
+            <button
+              type="button"
+              onClick={onStepMove}
+              className="w-full py-2.5 px-3 rounded font-black text-xs uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-stone-950 border-2 border-amber-300 shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-y-0.5"
+            >
+              <Footprints size={16} /> Mover 1 Passo no Rumo ({heading.toFixed(1)}°) [Clique]
+            </button>
+          )}
+
+          {/* Secondary Action Button to Switch to Local Travel View */}
           <button
             type="button"
             onClick={onTravel}
-            className="w-full py-2.5 px-3 rounded font-black text-xs uppercase tracking-wider bg-[#3f5038] hover:bg-[#4f6446] text-[#fef08a] border-2 border-[#6d885f] shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-y-0.5"
+            className="w-full py-2 px-3 rounded font-black text-xs uppercase tracking-wider bg-[#3f5038] hover:bg-[#4f6446] text-[#fef08a] border-2 border-[#6d885f] shadow flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-y-0.5"
           >
-            <Compass size={16} /> Ir para Tela de Viagem [2]
+            <Compass size={15} /> Ir para Tela de Viagem [2]
           </button>
         </section>
       </div>
@@ -416,6 +710,7 @@ export function TravelScreen({
   onSelect,
   onHeading,
   onMove,
+  onStepMove,
   onEnter,
   onCamp,
   rate,
@@ -428,6 +723,7 @@ export function TravelScreen({
   onSelect: (id: SettlementId) => void;
   onHeading: (heading: number) => void;
   onMove: () => void;
+  onStepMove?: () => void;
   onEnter: (id: SettlementId) => void;
   onCamp: () => void;
   rate: number;
@@ -437,6 +733,8 @@ export function TravelScreen({
 }) {
   const heading = state.exploration?.heading ?? 0;
   const [draft, setDraft] = useState<string | null>(null);
+  const dialRef = useRef<HTMLDivElement | null>(null);
+  const dialDragRef = useRef(false);
   const position = getWorldPosition(state);
   const nearby = getNearbySettlement(position);
   const nearbySecret = SECRET_LOCATIONS.find(
@@ -456,12 +754,32 @@ export function TravelScreen({
     }
   };
 
+  const updateDialBearing = (clientX: number, clientY: number) => {
+    const el = dialRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const deg = ((Math.atan2(clientX - cx, cy - clientY) * 180) / Math.PI + 360) % 360;
+    setDraft(null);
+    onHeading(Math.round(deg * 10) / 10);
+  };
+
   return (
     <div className="h-full w-full flex flex-col lg:flex-row min-h-0 overflow-hidden gap-3">
       {/* LOCAL DESERT VIEWPORT */}
       <div className="flex-1 min-h-0 flex flex-col justify-between caravan-screen-bezel p-1 overflow-hidden">
         <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-hidden">
-          <WorldDrawing state={state} selected={selected} onSelect={onSelect} local />
+          <WorldDrawing
+            state={state}
+            selected={selected}
+            onSelect={onSelect}
+            local
+            onStepMove={onStepMove}
+          />
+          <div className="pointer-events-none absolute top-2 left-2 rounded bg-[#141b12]/90 border border-[#4c5d43] px-2.5 py-1 text-[11px] font-mono font-bold text-[#fde047]">
+            Clique no mapa para avançar passo a passo no rumo ({heading.toFixed(1)}°)
+          </div>
         </div>
 
         {/* BOTTOM ACTION & TELEMETRY BAR ON MAP */}
@@ -503,14 +821,35 @@ export function TravelScreen({
 
       {/* RIGHT CARAVANEER TACTICAL COMPASS DOCK */}
       <div className="w-80 lg:w-88 shrink-0 flex flex-col gap-2.5 overflow-y-auto pr-1">
-        <div className="caravan-bezel p-3 space-y-3">
-          {/* ANALOG COMPASS */}
-          <div className="relative mx-auto h-36 w-36 rounded-full border-4 border-[#47573f] bg-[#c5b083] shadow-inner">
+        <div className="caravan-bezel p-3 space-y-2.5">
+          {/* DRAGGABLE ANALOG COMPASS */}
+          <div
+            ref={dialRef}
+            onPointerDown={e => {
+              dialDragRef.current = true;
+              e.currentTarget.setPointerCapture(e.pointerId);
+              updateDialBearing(e.clientX, e.clientY);
+            }}
+            onPointerMove={e => {
+              if (!dialDragRef.current) return;
+              updateDialBearing(e.clientX, e.clientY);
+            }}
+            onPointerUp={e => {
+              dialDragRef.current = false;
+              try {
+                e.currentTarget.releasePointerCapture(e.pointerId);
+              } catch {
+                // ignore
+              }
+            }}
+            title="Clique e arraste para girar a agulha da bússola"
+            className="relative mx-auto h-32 w-32 rounded-full border-4 border-[#47573f] bg-[#c5b083] shadow-inner cursor-grab active:cursor-grabbing select-none"
+          >
             <span className="absolute left-1/2 top-1 -translate-x-1/2 font-serif font-black text-xs text-[#141813]">N · 0°</span>
             <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#141813]">90°</span>
             <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-bold text-[#141813]">180°</span>
             <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#141813]">270°</span>
-            <svg viewBox="0 0 160 160" className="h-full w-full" aria-label={`Compass bearing ${heading.toFixed(1)} degrees`}>
+            <svg viewBox="0 0 160 160" className="h-full w-full pointer-events-none" aria-label={`Compass bearing ${heading.toFixed(1)} degrees`}>
               <g transform={`rotate(${heading} 80 80)`}>
                 <path d="M80 28L92 80 80 72 68 80Z" fill="#b91c1c" stroke="#450a0a" strokeWidth="1.2"/>
                 <path d="M80 132L92 80 80 88 68 80Z" fill="#1c251a" stroke="#141813" strokeWidth="1.2"/>
@@ -534,7 +873,7 @@ export function TravelScreen({
                 value={draft ?? heading.toFixed(1)}
                 onChange={e => setDraft(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") commitHeading(); }}
-                className="game-input min-w-0 flex-1 text-sm py-1.5 font-bold"
+                className="game-input min-w-0 flex-1 text-sm py-1 font-bold"
               />
               <button className="game-secondary py-1 px-3 text-xs font-bold" onClick={commitHeading}>Ajustar</button>
             </div>
@@ -555,13 +894,24 @@ export function TravelScreen({
             </div>
           </div>
 
-          {/* MAIN TRAVEL TOGGLE BUTTON */}
+          {/* PRIMARY CLICK-BY-CLICK STEP MOVEMENT BUTTON */}
+          {onStepMove && (
+            <button
+              type="button"
+              onClick={onStepMove}
+              className="w-full py-2.5 px-3 rounded font-black text-xs uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-stone-950 border-2 border-amber-300 shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-y-0.5"
+            >
+              <Footprints size={16} /> Avançar 1 Passo ({heading.toFixed(1)}°) [Clique]
+            </button>
+          )}
+
+          {/* CONTINUOUS TRAVEL TOGGLE BUTTON */}
           <button
-            className={`w-full justify-center py-2.5 text-sm font-black uppercase tracking-wider shadow cursor-pointer transition-all active:translate-y-0.5 ${moving ? "game-secondary" : "game-primary"}`}
+            className={`w-full justify-center py-2 text-xs font-black uppercase tracking-wider shadow cursor-pointer transition-all active:translate-y-0.5 ${moving ? "game-secondary" : "game-primary"}`}
             onClick={onMove}
           >
-            {moving ? <Pause size={16}/> : <Play size={16}/>}
-            {moving ? "Parar Caravana [Espaço]" : state.currentSettlement ? "Partir & Viajar [Espaço]" : "Continuar Viagem [Espaço]"}
+            {moving ? <Pause size={15}/> : <Play size={15}/>}
+            {moving ? "Parar Marcha Contínua [Espaço]" : "Marcha Contínua [Espaço]"}
           </button>
         </div>
 
@@ -609,7 +959,7 @@ export function TravelScreen({
 
           <div className="pt-1 border-t border-[#3c4a35] space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <label htmlFor="travel-rate" className="text-[#ebdcb2] font-bold">Velocidade da Marcha:</label>
+              <label htmlFor="travel-rate" className="text-[#ebdcb2] font-bold">Passo da Marcha:</label>
               <select
                 id="travel-rate"
                 className="game-input text-xs py-0.5 px-2 font-bold"
@@ -631,12 +981,12 @@ export function TravelScreen({
             </button>
           </div>
 
-          <div className="h-16 pt-1 flex items-center justify-center opacity-85">
+          <div className="h-14 pt-1 flex items-center justify-center opacity-85">
             <TransportIllustration transportId={state.transport} className="h-full w-full object-contain"/>
           </div>
         </div>
       </div>
     </div>
-
   );
 }
+

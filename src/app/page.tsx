@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { soundEngine, WeaponSoundCategory } from "@/assets/soundEngine";
 import { StrategicWorldMap, TravelScreen } from "@/components/WayfindingPanels";
 import { TradeLedger } from "@/components/TradeLedger";
-import { advanceExploration, advanceGameTime, scavengeSecretLocation, getNearbySettlement, getTerrainAt, getWorldPosition } from "@/domain/navigationEngine";
+import { advanceExploration, advanceGameTime, scavengeSecretLocation, getNearbySettlement, getTerrainAt, getWorldPosition, stepExploration } from "@/domain/navigationEngine";
 import { performEnemyAction } from "@/domain/combatActions";
 import { migrateGameState } from "@/domain/saveGame";
 import { PreCombatEncounterModal } from "@/components/PreCombatEncounterModal";
@@ -238,6 +238,45 @@ export default function MerchantRouteGamePage() {
       const pos = getWorldPosition(prev);
       const moving = !prev.exploration?.isMoving;
       return {...prev,currentSettlement:moving?null:prev.currentSettlement,travelState:null,exploration:{x:pos.x,y:pos.y,heading:0,terrain:getTerrainAt(pos),distanceTravelledKm:0,...prev.exploration,isMoving:moving,isPaused:false}};
+    });
+  };
+  const handleStepMovement = () => {
+    if (state.pendingEncounter || state.combatState) return;
+    if (getActiveTransportDefinition(state).propulsion === "motor" && (state.inventory.gasoline ?? 0) <= 0) {
+      setNotice("No gasoline. Refill in town or switch to a non-motor transport before departing.");
+      return;
+    }
+    soundEngine.playTravelTick(TRANSPORTS[state.transport].propulsion);
+    setState(prev => {
+      if (prev.pendingEncounter || prev.combatState) return prev;
+      const hours = 0.75 * travelRate;
+      const next = stepExploration(prev, hours);
+      const prevPos = getWorldPosition(prev);
+      const nextPos = getWorldPosition(next);
+      const movedDist = Math.hypot(nextPos.x - prevPos.x, nextPos.y - prevPos.y);
+      if (movedDist < 1e-4) return next;
+      const nearRoute = [...ROUTES].sort((a, b) => {
+        const midpoint = (r: typeof a) => ({
+          x: (SETTLEMENTS[r.from].coordinates.x + SETTLEMENTS[r.to].coordinates.x) / 2,
+          y: (SETTLEMENTS[r.from].coordinates.y + SETTLEMENTS[r.to].coordinates.y) / 2,
+        });
+        const da = midpoint(a), db = midpoint(b);
+        return Math.hypot(nextPos.x - da.x, nextPos.y - da.y) - Math.hypot(nextPos.x - db.x, nextPos.y - db.y);
+      })[0];
+      const secured = prev.bounties.some(b => b.routeId === nearRoute.id && b.completed);
+      const chance = Math.max(0.015, 0.055 + nearRoute.dangerLevel * 0.018 - prev.attributes.perception * 0.005) * hours * (secured ? 0.45 : 1);
+      if (!getNearbySettlement(nextPos) && Math.random() < chance) {
+        const encounter = generateRoadEncounter(
+          { ...next, bounties: next.bounties.filter(b => (next.acceptedBountyIds ?? []).includes(b.id)) },
+          nearRoute
+        );
+        return {
+          ...next,
+          pendingEncounter: encounter,
+          journalLogs: [`Road encounter: ${encounter.title}`, ...next.journalLogs].slice(0, 60),
+        };
+      }
+      return next;
     });
   };
   const finalizeEnterSettlement = (id: SettlementId, inspectionResult?: { seized?: boolean; fine?: number; bribe?: number; surrendered?: boolean }) => {
@@ -1550,6 +1589,10 @@ export default function MerchantRouteGamePage() {
               selected={selectedSettlement}
               onSelect={setSelectedSettlement}
               onTravel={() => setActiveTab("travel")}
+              onHeading={handleHeading}
+              onStepMove={handleStepMovement}
+              onEnter={handleEnterSettlement}
+              onScavenge={handleScavengeSecret}
             />
           )}
 
@@ -1560,6 +1603,7 @@ export default function MerchantRouteGamePage() {
               onSelect={setSelectedSettlement}
               onHeading={handleHeading}
               onMove={handleToggleMovement}
+              onStepMove={handleStepMovement}
               onEnter={handleEnterSettlement}
               onCamp={handleCamp}
               rate={travelRate}

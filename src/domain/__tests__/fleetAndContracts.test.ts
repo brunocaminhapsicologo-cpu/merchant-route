@@ -3,12 +3,10 @@ import {
   getActiveTransportDefinition,
   getMaxCargoCapacityKg,
   getCaravanSpeedBreakdown,
-  getDailyUpkeepSummary,
   repairCaravan,
   generateAvailableContracts,
   completeContractsAtSettlement,
 } from "../economyEngine";
-import { advanceExploration } from "../navigationEngine";
 import { createInitialGameState, TRANSPORTS } from "../worldData";
 
 describe("Phase 2: Multi-Fleet, Vehicle Wear & Freight Contracts", () => {

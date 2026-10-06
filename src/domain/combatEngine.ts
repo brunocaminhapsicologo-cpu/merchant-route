@@ -353,8 +353,8 @@ export function initializeTacticalCombat(
   encounter: RoadEncounter,
   terrainOverride?: TerrainType
 ): CombatState {
-  const gridWidth = 12;
-  const gridHeight = Math.max(8, Math.ceil(Math.max(state.hiredMercenaries.length + 1, encounter.enemies.length) / 3));
+  const gridWidth = 20;
+  const gridHeight = Math.max(12, Math.ceil(Math.max(state.hiredMercenaries.length + 1, encounter.enemies.length) / 3));
   const hasWagon = ["wooden_cart_donkey", "heavy_wagon_horse", "brahmin_freight_wagon", "desert_dune_buggy", "armored_pickup"].includes(state.transport);
   const terrain: TerrainType = terrainOverride ?? state.exploration?.terrain ?? state.travelState?.terrain ?? "scorched_flats";
 
@@ -367,50 +367,89 @@ export function initializeTacticalCombat(
       let defenseBonus = 0;
 
       // Player's caravan wagon cover on the left defensive flank
-      if (hasWagon && ((x === 2 && y === 3) || (x === 2 && y === 4))) {
+      if (hasWagon && ((x === 2 && y === 3) || (x === 2 && y === 4) || (x === 2 && y === 7) || (x === 2 && y === 8))) {
         cover = "wagon";
         defenseBonus = 45;
-      } else if (terrain === "rocky_canyon" && x >= 3 && x <= 9) {
-        if ((x === 4 && y === 1) || (x === 5 && y === 5) || (x === 7 && y === 2) || (x === 8 && y === 6) || (x === 5 && y === 2) || (x === 8 && y === 3)) {
+      } else if (terrain === "rocky_canyon" && x >= 3 && x <= 17) {
+        if (
+          (x === 4 && y === 1) || (x === 5 && y === 5) || (x === 7 && y === 2) ||
+          (x === 8 && y === 6) || (x === 5 && y === 2) || (x === 8 && y === 3) ||
+          (x === 11 && y === 2) || (x === 12 && y === 7) || (x === 14 && y === 4) ||
+          (x === 15 && y === 9) || (x === 6 && y === 9) || (x === 16 && y === 2)
+        ) {
           cover = "rocks";
           defenseBonus = 30;
-        } else if ((x === 6 && y === 3) || (x === 9 && y === 4) || (x === 4 && y === 4)) {
+        } else if (
+          (x === 6 && y === 3) || (x === 9 && y === 4) || (x === 4 && y === 4) ||
+          (x === 10 && y === 8) || (x === 13 && y === 5) || (x === 16 && y === 6)
+        ) {
           cover = "ruins";
           defenseBonus = 35;
         }
-      } else if (terrain === "sand_dunes" && x >= 3 && x <= 9) {
-        if ((x === 4 && y === 6) || (x === 7 && y === 1) || (x === 5 && y === 3) || (x === 8 && y === 4)) {
+      } else if (terrain === "sand_dunes" && x >= 3 && x <= 17) {
+        if (
+          (x === 4 && y === 6) || (x === 7 && y === 1) || (x === 5 && y === 3) ||
+          (x === 8 && y === 4) || (x === 10 && y === 2) || (x === 12 && y === 8) ||
+          (x === 14 && y === 5) || (x === 16 && y === 9) || (x === 6 && y === 10)
+        ) {
           cover = "sand";
           moveApCost = 2;
-        } else if ((x === 5 && y === 5) || (x === 7 && y === 2)) {
+        } else if (
+          (x === 4 && y === 1) || (x === 5 && y === 5) || (x === 7 && y === 2) ||
+          (x === 11 && y === 6) || (x === 15 && y === 3) || (x === 9 && y === 9)
+        ) {
           cover = "rocks";
           defenseBonus = 30;
-        } else if (x === 6 && y === 3) {
+        } else if ((x === 6 && y === 3) || (x === 13 && y === 7)) {
           cover = "ruins";
           defenseBonus = 35;
         }
-      } else if (terrain === "old_highway" && x >= 3 && x <= 9) {
-        if ((x === 6 && y === 3) || (x === 9 && y === 4) || (x === 4 && y === 2) || (x === 7 && y === 5)) {
+      } else if (terrain === "old_highway" && x >= 3 && x <= 17) {
+        if (
+          (x === 6 && y === 3) || (x === 9 && y === 4) || (x === 4 && y === 5) ||
+          (x === 7 && y === 5) || (x === 11 && y === 3) || (x === 13 && y === 7) ||
+          (x === 15 && y === 4) || (x === 10 && y === 9)
+        ) {
           cover = "ruins";
           defenseBonus = 35;
-        } else if ((x === 4 && y === 1) || (x === 8 && y === 6)) {
+        } else if (
+          (x === 4 && y === 1) || (x === 8 && y === 6) || (x === 12 && y === 2) ||
+          (x === 16 && y === 8) || (x === 6 && y === 8)
+        ) {
           cover = "rocks";
           defenseBonus = 30;
         }
       } else {
-        // Standard distribution (scorched_flats & default)
+        // Standard distribution (scorched_flats & default) across 20x12
         if (
           (x === 4 && y === 1) ||
           (x === 5 && y === 5) ||
           (x === 7 && y === 2) ||
-          (x === 8 && y === 6)
+          (x === 8 && y === 6) ||
+          (x === 11 && y === 2) ||
+          (x === 13 && y === 7) ||
+          (x === 15 && y === 3) ||
+          (x === 16 && y === 9) ||
+          (x === 6 && y === 9)
         ) {
           cover = "rocks";
           defenseBonus = 30;
-        } else if ((x === 6 && y === 3) || (x === 9 && y === 4)) {
+        } else if (
+          (x === 6 && y === 3) ||
+          (x === 9 && y === 4) ||
+          (x === 12 && y === 5) ||
+          (x === 14 && y === 8) ||
+          (x === 10 && y === 9)
+        ) {
           cover = "ruins";
           defenseBonus = 35;
-        } else if ((x === 4 && y === 6) || (x === 7 && y === 1)) {
+        } else if (
+          (x === 4 && y === 6) ||
+          (x === 7 && y === 1) ||
+          (x === 11 && y === 6) ||
+          (x === 15 && y === 6) ||
+          (x === 8 && y === 10)
+        ) {
           cover = "sand";
           moveApCost = 2;
         }
@@ -478,11 +517,9 @@ export function initializeTacticalCombat(
     });
   });
 
-  // Add enemy units on the right side of the grid
-
-
+  // Add enemy units on the far right side of the 20x12 grid
   encounter.enemies.forEach((enemy, idx) => {
-    const pos = { x: 11 - Math.floor(idx / gridHeight), y: idx % gridHeight };
+    const pos = { x: (gridWidth - 1) - Math.floor(idx / gridHeight), y: idx % gridHeight };
     const enemyWeaponStats = ITEMS[enemy.weapon].weaponStats!;
     units.push({
       id: `enemy_${idx}`,

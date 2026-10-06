@@ -43,20 +43,20 @@ function UnitVisual({ unit, active, selected }: {
   }, [unit.hp, unit.isFled]);
 
   return (
-    <div className="mr-combat-unit absolute flex flex-col items-center justify-center" style={{
+    <div className="mr-combat-unit absolute flex flex-col items-center justify-center p-0.5" style={{
       left: `${unit.x * 100}%`, top: `${unit.y * 100}%`,
       width: "100%", height: "100%", opacity: visible ? 1 : 0,
     }}>
-      <div ref={spriteRef} className="relative h-11 w-11 rounded-full" style={{
-        boxShadow: selected ? "0 0 0 2px #fbbf24, 0 0 18px #fbbf2470" : active ? "0 0 0 2px #34d399" : undefined,
+      <div ref={spriteRef} className="relative h-[58%] w-[58%] max-h-9 max-w-9 min-h-5 min-w-5 aspect-square rounded-full shrink-0" style={{
+        boxShadow: selected ? "0 0 0 2px #fbbf24, 0 0 14px #fbbf2470" : active ? "0 0 0 2px #34d399" : undefined,
         background: unit.isPlayerTeam ? "#064e3b55" : "#7f1d1d55",
       }}>
         <TopDownUnitSprite isPlayerTeam={unit.isPlayerTeam} weaponId={unit.weapon}
           isCrouched={unit.isCrouched} crippledLegs={unit.crippledLegs} isActive={active} className="h-full w-full" />
-        {damage > 0 && <span className="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-red-950 px-1 text-xs font-bold text-red-100">−{damage} HP</span>}
+        {damage > 0 && <span className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-red-950 px-1 text-[10px] font-bold text-red-100 z-30">−{damage} HP</span>}
       </div>
-      <span className="max-w-full truncate rounded bg-stone-950/80 px-1 text-[9px] font-bold text-stone-100">{unit.name.split(" ")[0]} · {unit.hp} HP</span>
-      <div className="h-1 w-10 overflow-hidden rounded bg-stone-950/80"><div className={unit.isPlayerTeam ? "h-full bg-emerald-400" : "h-full bg-red-400"} style={{ width: `${Math.max(0, Math.min(100, unit.hp / unit.maxHp * 100))}%` }} /></div>
+      <span className="max-w-full truncate rounded bg-stone-950/85 px-1 text-[8px] leading-tight font-bold text-stone-100 mt-0.5">{unit.name.split(" ")[0]}·{unit.hp}</span>
+      <div className="h-1 w-4/5 max-w-9 overflow-hidden rounded bg-stone-950/85 shrink-0"><div className={unit.isPlayerTeam ? "h-full bg-emerald-400" : "h-full bg-red-400"} style={{ width: `${Math.max(0, Math.min(100, unit.hp / unit.maxHp * 100))}%` }} /></div>
     </div>
   );
 }
