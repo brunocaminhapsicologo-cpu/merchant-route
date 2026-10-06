@@ -2,16 +2,17 @@
 
 :root {
   color-scheme: dark;
-  --caravan-bg: #121512;
-  --caravan-panel: #1a1f18;
-  --caravan-panel-dark: #151814;
-  --caravan-panel-light: #232a20;
-  --caravan-border: #3d4738;
-  --caravan-border-light: #52604b;
-  --caravan-border-dark: #252b22;
-  --caravan-text: #e2d7ba;
-  --caravan-text-muted: #8d9887;
-  --caravan-gold: #fef08a;
+  --caravan-bg: #232a20;
+  --caravan-console: #293225;
+  --caravan-panel: #1c231a;
+  --caravan-panel-dark: #131812;
+  --caravan-panel-light: #323d2e;
+  --caravan-border: #475640;
+  --caravan-border-light: #647859;
+  --caravan-border-dark: #181f15;
+  --caravan-text: #ebdcb2;
+  --caravan-text-muted: #95a38e;
+  --caravan-gold: #fde047;
   --caravan-accent: #8ba37c;
 }
 
@@ -24,12 +25,55 @@ body {
   max-height: 100vh;
 }
 
-/* CARAVANEER 2 TACTICAL BEVELED PANELS */
+/* CARAVANEER 2 TACTICAL MILITARY CONSOLE CHASSIS */
+.caravan-chassis {
+  background-color: #232a20;
+  background-image: 
+    radial-gradient(circle at 50% 30%, rgba(70, 84, 63, 0.22) 0%, rgba(18, 23, 16, 0.5) 100%),
+    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.03) 0px, rgba(0, 0, 0, 0.03) 2px, transparent 2px, transparent 4px);
+}
+
+.caravan-bezel {
+  border: 3px solid #475640;
+  border-top-color: #5d6f54;
+  border-left-color: #55674c;
+  border-bottom-color: #182015;
+  border-right-color: #1e261a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), inset 1px 1px 0 rgba(140, 165, 125, 0.25), inset -1px -1px 0 rgba(0, 0, 0, 0.7);
+  background: var(--caravan-panel);
+  border-radius: 8px;
+}
+
+.caravan-screen-bezel {
+  border: 3px solid #3c4936;
+  border-top-color: #1c2217;
+  border-left-color: #22291d;
+  border-bottom-color: #55674c;
+  border-right-color: #4b5b43;
+  box-shadow: inset 0 3px 10px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(110, 130, 100, 0.25);
+  background: #141912;
+  border-radius: 6px;
+}
+
+.caravan-gauge {
+  background: #141912;
+  border: 1.5px solid #3a4734;
+  border-top-color: #1f251a;
+  border-left-color: #1f251a;
+  border-bottom-color: #4f6047;
+  border-right-color: #47563f;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.65), 0 1px 0 rgba(120, 145, 105, 0.15);
+  border-radius: 4px;
+}
+
+/* LEGACY ALIASES ADAPTED TO NEW PALETTE */
 .game-panel {
   border: 2px solid var(--caravan-border);
+  border-top-color: var(--caravan-border-light);
+  border-bottom-color: var(--caravan-border-dark);
   border-radius: 6px;
   background: var(--caravan-panel);
-  box-shadow: inset 1px 1px 0 rgba(104, 125, 96, 0.25), inset -1px -1px 0 rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 1px 1px 0 rgba(104, 125, 96, 0.25), inset -1px -1px 0 rgba(0, 0, 0, 0.6), 0 4px 10px rgba(0, 0, 0, 0.35);
 }
 
 .caravan-frame {

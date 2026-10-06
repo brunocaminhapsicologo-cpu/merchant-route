@@ -1330,25 +1330,25 @@ export default function MerchantRouteGamePage() {
 
   return (
     <div
-      className="h-screen max-h-screen w-screen overflow-hidden bg-[#121512] text-[#e2d7ba] flex flex-col select-none"
+      className="h-screen max-h-screen w-screen overflow-hidden bg-[#232a20] caravan-chassis text-[#ebdcb2] flex flex-col select-none"
       onPointerDown={() => soundEngine.unlockAudio()}
       onKeyDown={() => soundEngine.unlockAudio()}
     >
-      {/* 1. TOP PERMANENT CARAVANEER TELEMETRY HUD (Height: 44px) */}
+      {/* 1. TOP PERMANENT CARAVANEER TELEMETRY HUD (Height: 56px) */}
       <header
         inert={!!state.combatState || !!state.pendingEncounter}
-        className="h-11 shrink-0 bg-[#161a15] border-b-2 border-[#3d4738] px-3 flex items-center justify-between gap-2 shadow z-20"
+        className="h-14 shrink-0 bg-[#1a2218] border-b-2 border-[#47573f] px-3 flex items-center justify-between gap-2 shadow-lg z-20"
       >
         {/* Brand & Location Indicator */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="flex h-7 w-7 items-center justify-center rounded border border-[#52604b] bg-[#22281e] text-[#fef08a] font-bold text-xs shadow-inner">
+          <div className="flex h-9 w-9 items-center justify-center rounded border-2 border-[#607554] bg-[#2d3928] text-[#fde047] font-black text-sm shadow-inner">
             MR
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-extrabold text-xs uppercase tracking-wider text-[#fef08a] hidden sm:inline">
-              Merchant Route
+            <span className="font-black text-sm uppercase tracking-wider text-[#fde047] hidden sm:inline font-mono">
+              MERCHANT ROUTE
             </span>
-            <span className="rounded bg-[#20271e] border border-[#3d4738] px-2 py-0.5 text-[10px] font-mono text-[#c5b896]">
+            <span className="rounded bg-[#141a12] border border-[#3e4d36] px-2.5 py-1 text-xs font-mono font-bold text-[#ebdcb2]">
               {state.currentSettlement
                 ? `[DOCKED] ${SETTLEMENTS[state.currentSettlement].name}`
                 : state.travelState
@@ -1358,64 +1358,73 @@ export default function MerchantRouteGamePage() {
           </div>
         </div>
 
-        {/* Survival & Economy Telemetry Pills */}
-        <div className="flex items-center gap-1.5 md:gap-2 text-xs font-mono shrink-0">
+        {/* Survival & Economy Telemetry Gauges */}
+        <div className="flex items-center gap-2 text-xs font-mono shrink-0">
           {/* Cash */}
-          <div className="flex items-center gap-1 rounded bg-[#141813] border border-[#3d4738] px-2 py-1 text-[#fef08a]" title="Trade Script Cash">
-            <Coins className="h-3.5 w-3.5 text-emerald-400" />
-            <span className="font-bold">${state.cash.toFixed(0)}</span>
+          <div className="caravan-gauge px-2.5 py-1 flex items-center gap-1.5" title="Trade Script Cash (Dinheiro da Caravana)">
+            <Coins className="h-4 w-4 text-emerald-400" />
+            <span className="font-bold text-sm text-[#fde047]">${state.cash.toFixed(0)}</span>
           </div>
 
           {/* HP / AP */}
-          <div className="flex items-center gap-1 rounded bg-[#141813] border border-[#3d4738] px-2 py-1 text-red-200" title="Hull / Leader Health">
-            <Heart className="h-3.5 w-3.5 text-red-400" />
-            <span className="font-bold">{Math.round(currentHp)}/{getMaxHp(state.attributes)}</span>
-          </div>
-
-          <div className="hidden lg:flex items-center gap-1 rounded bg-[#141813] border border-[#3d4738] px-2 py-1 text-amber-200" title="Combat Action Points">
-            <Zap className="h-3.5 w-3.5 text-amber-400" />
-            <span>{getMaxAp(state.attributes)} AP</span>
+          <div className="caravan-gauge px-2.5 py-1 flex items-center gap-2" title="Hull / Leader Health & Action Points">
+            <div className="flex items-center gap-1 text-rose-300">
+              <Heart className="h-4 w-4 text-rose-400" />
+              <span className="font-bold">{Math.round(currentHp)}/{getMaxHp(state.attributes)}</span>
+            </div>
+            <div className="hidden md:flex items-center gap-1 text-amber-300">
+              <Zap className="h-4 w-4 text-amber-400" />
+              <span className="font-bold">{getMaxAp(state.attributes)} AP</span>
+            </div>
           </div>
 
           {/* Survival Supplies (Water, Food, Forage, Fuel) */}
-          <div className="flex items-center gap-2 rounded bg-[#141813] border border-[#3d4738] px-2.5 py-1">
-            <span title="Purified Water" className="flex items-center gap-1 text-[#38bdf8]">
-              <Droplets className="h-3.5 w-3.5" />
+          <div className="caravan-gauge px-3 py-1 flex items-center gap-3">
+            <span title="Purified Water (Água Purificada)" className="flex items-center gap-1 text-[#38bdf8] font-bold">
+              <Droplets className="h-4 w-4" />
               {(state.inventory.water ?? 0).toFixed(0)}L
             </span>
-            <span title="Food Rations" className="flex items-center gap-1 text-[#e2d7ba]">
-              <Utensils className="h-3.5 w-3.5" />
+            <span title="Food Rations (Rações de Comida)" className="flex items-center gap-1 text-[#ebdcb2] font-bold">
+              <Utensils className="h-4 w-4 text-[#c5b896]" />
               {(state.inventory.food_rations ?? 0).toFixed(0)}
             </span>
-            <span title="Animal Forage" className="hidden xl:flex items-center gap-1 text-[#a7f3d0]">
-              <Wheat className="h-3.5 w-3.5" />
+            <span title="Animal Forage (Forragem de Animais)" className="hidden xl:flex items-center gap-1 text-[#86efac] font-bold">
+              <Wheat className="h-4 w-4" />
               {(state.inventory.animal_forage ?? 0).toFixed(0)}
             </span>
-            <span title="Refined Gasoline" className="flex items-center gap-1 text-[#fb923c]">
-              <Flame className="h-3.5 w-3.5" />
+            <span title="Refined Gasoline (Combustível)" className="flex items-center gap-1 text-[#fb923c] font-bold">
+              <Flame className="h-4 w-4" />
               {(state.inventory.gasoline ?? 0).toFixed(0)}L
             </span>
           </div>
 
-          {/* Caravan Cargo Weight Meter with Tricolor Bar */}
+          {/* Caravan Cargo Weight Meter with Progress Bar */}
           <div
-            className={`flex items-center gap-1.5 rounded border px-2 py-1 ${
+            className={`caravan-gauge px-2.5 py-1 flex items-center gap-2 ${
               currentWeight > maxCapacity
                 ? "border-red-600 bg-red-950/60 text-red-200"
                 : currentWeight > maxCapacity * 0.7
                 ? "border-amber-600 bg-amber-950/40 text-amber-200"
-                : "border-[#3d4738] bg-[#141813] text-[#c5b896]"
+                : ""
             }`}
             title={`Cargo Weight: ${currentWeight}/${maxCapacity} kg (${speedInfo.statusLabel})`}
           >
-            <Backpack className="h-3.5 w-3.5 text-[#fef08a]" />
-            <span className="font-bold">{currentWeight}/{maxCapacity}kg</span>
+            <Backpack className="h-4 w-4 text-[#fde047]" />
+            <div className="flex flex-col">
+              <span className="font-bold text-[11px] leading-tight text-[#ebdcb2]">{currentWeight}/{maxCapacity}kg</span>
+              <div className="w-16 h-1.5 bg-[#10140f] rounded-full overflow-hidden border border-[#3c4a35] mt-0.5">
+                <div
+                  className={`h-full ${currentWeight > maxCapacity ? "bg-red-500" : currentWeight > maxCapacity * 0.7 ? "bg-amber-400" : "bg-emerald-400"}`}
+                  style={{ width: `${Math.min(100, (currentWeight / Math.max(1, maxCapacity)) * 100)}%` }}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Day / Time */}
-          <div className="hidden sm:flex items-center gap-1 rounded bg-[#141813] border border-[#3d4738] px-2 py-1 text-[#c5b896]" title="Game Time">
-            <Clock className="h-3.5 w-3.5 text-[#8d9887]" />
-            <span>Day {state.day}, {String(Math.floor(state.hour)).padStart(2, "0")}:{String(Math.floor((state.hour % 1) * 60)).padStart(2, "0")}</span>
+          <div className="hidden sm:flex caravan-gauge px-2.5 py-1 items-center gap-1.5 text-[#ebdcb2]" title="Tempo do Deserto">
+            <Clock className="h-4 w-4 text-[#95a38e]" />
+            <span className="font-bold">Dia {state.day}, {String(Math.floor(state.hour)).padStart(2, "0")}:{String(Math.floor((state.hour % 1) * 60)).padStart(2, "0")}</span>
           </div>
         </div>
 
@@ -1425,44 +1434,44 @@ export default function MerchantRouteGamePage() {
             type="button"
             onClick={handleToggleMute}
             title={isMuted ? "Unmute Audio" : "Mute Audio"}
-            className={`p-1.5 rounded border cursor-pointer ${
+            className={`p-2 rounded border-2 cursor-pointer transition-all ${
               isMuted
-                ? "border-red-800 bg-red-950 text-red-300"
-                : "border-[#3d4738] bg-[#20271e] text-[#c5b896] hover:bg-[#2a3327]"
+                ? "border-red-700 bg-red-950 text-red-300"
+                : "border-[#4c5c44] bg-[#293425] text-[#ebdcb2] hover:bg-[#344230]"
             }`}
           >
-            {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+            {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
           </button>
           <button
             type="button"
             onClick={() => setShowLogsModal(true)}
-            title="View Trail Logs"
-            className="p-1.5 rounded border border-[#3d4738] bg-[#20271e] text-[#c5b896] hover:bg-[#2a3327] cursor-pointer"
+            title="Ver Diário de Bordo"
+            className="p-2 rounded border-2 border-[#4c5c44] bg-[#293425] text-[#ebdcb2] hover:bg-[#344230] cursor-pointer"
           >
-            <ScrollText size={15} />
+            <ScrollText size={16} />
           </button>
           <button
             type="button"
             onClick={() => setShowSettingsModal(true)}
-            title="Game Saves & Audio Settings"
-            className="px-2 py-1 rounded border border-[#3d4738] bg-[#20271e] text-[#c5b896] hover:bg-[#2a3327] text-xs font-bold cursor-pointer"
+            title="Configurações de Save & Áudio"
+            className="px-2.5 py-1.5 rounded border-2 border-[#4c5c44] bg-[#293425] text-[#ebdcb2] hover:bg-[#344230] text-xs font-black cursor-pointer uppercase"
           >
             Config
           </button>
           <button
             type="button"
             onClick={handleResetGame}
-            title="Reset Game Run"
-            className="p-1.5 rounded border border-[#3d4738] bg-[#20271e] text-[#8d9887] hover:bg-stone-800 cursor-pointer"
+            title="Reiniciar Partida (Novo Jogo)"
+            className="p-2 rounded border-2 border-[#4c5c44] bg-[#293425] text-[#95a38e] hover:bg-stone-800 cursor-pointer"
           >
-            <RotateCcw size={15} />
+            <RotateCcw size={16} />
           </button>
         </div>
       </header>
 
       {/* Notice Banner */}
       {notice && (
-        <div role="status" className="bg-[#241a15] border-b border-amber-800 px-3 py-1 text-xs text-amber-200 flex justify-between items-center shrink-0">
+        <div role="status" className="bg-[#2e2118] border-b border-amber-700 px-3 py-1.5 text-xs text-amber-200 flex justify-between items-center shrink-0">
           <span>{notice}</span>
           <button className="text-amber-400 font-bold px-2" onClick={() => setNotice("")}>×</button>
         </div>
@@ -1471,10 +1480,10 @@ export default function MerchantRouteGamePage() {
       {/* 2. MAIN COCKPIT VIEWPORT (FLEX-1 OVERFLOW-HIDDEN ZERO-SCROLL) */}
       <main
         inert={!!state.combatState || !!state.pendingEncounter}
-        className="flex-1 min-h-0 w-full flex overflow-hidden p-2 gap-2"
+        className="flex-1 min-h-0 w-full flex overflow-hidden p-2.5 gap-2.5"
       >
-        {/* LEFT CARAVANEER NAVIGATION DECK */}
-        <nav className="w-32 sm:w-36 shrink-0 flex flex-col gap-1.5 select-none">
+        {/* LEFT CARAVANEER NAVIGATION DECK (Width: 180px) */}
+        <nav className="w-44 lg:w-48 shrink-0 flex flex-col gap-2 select-none">
           {([
             ["map", "Atlas [1]", Compass],
             ["travel", "Viagem [2]", Truck],
@@ -1489,20 +1498,20 @@ export default function MerchantRouteGamePage() {
                 type="button"
                 disabled={isTownDisabled}
                 onClick={() => setActiveTab(tab)}
-                className={`w-full flex items-center justify-between px-2.5 py-2.5 rounded text-xs font-bold tracking-wider uppercase transition-all shadow cursor-pointer ${
+                className={`w-full h-12 flex items-center justify-between px-3 rounded text-xs font-black tracking-wider uppercase transition-all shadow-md cursor-pointer ${
                   isActive
-                    ? "bg-[#384332] text-[#fef08a] border-2 border-[#8ba37c] shadow-inner"
+                    ? "bg-[#4a5c43] text-[#fef08a] border-2 border-[#94b383] shadow-inner"
                     : isTownDisabled
-                    ? "bg-[#161a15] text-[#556050] border border-[#262e22] cursor-not-allowed opacity-50"
-                    : "bg-[#1d231b] text-[#c5b896] border border-[#343e2f] hover:bg-[#252d22] hover:text-[#fef08a]"
+                    ? "bg-[#182016] text-[#4d5a49] border border-[#2b3527] cursor-not-allowed opacity-50"
+                    : "bg-[#232b20] text-[#ebdcb2] border border-[#3e4d36] hover:bg-[#2c3628] hover:text-[#fde047]"
                 }`}
               >
-                <span className="flex items-center gap-1.5">
-                  <Icon size={14} />
+                <span className="flex items-center gap-2">
+                  <Icon size={16} />
                   {label}
                 </span>
                 {tab === "character" && state.unspentAttributePoints > 0 && (
-                  <span className="rounded bg-emerald-600 px-1 py-0.2 text-[9px] text-stone-950 font-bold">
+                  <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] text-stone-950 font-black">
                     +{state.unspentAttributePoints}
                   </span>
                 )}
@@ -1511,26 +1520,30 @@ export default function MerchantRouteGamePage() {
           })}
 
           {/* Equipped Weapon Badge */}
-          <div className="mt-auto bg-[#181d17] border border-[#343e2f] rounded p-2 text-xs space-y-1">
-            <div className="text-[10px] uppercase tracking-wider text-[#8d9887]">Arma</div>
-            <div className="font-bold text-[#fef08a] truncate text-xs">{ITEMS[state.equippedWeapon].name}</div>
+          <div className="mt-auto caravan-bezel p-2.5 text-xs space-y-1">
+            <div className="text-[10px] uppercase font-black tracking-wider text-[#95a38e]">Arma Equipada</div>
+            <div className="font-extrabold text-sm text-[#fde047] truncate">{ITEMS[state.equippedWeapon].name}</div>
             {ITEMS[state.equippedWeapon].weaponStats?.ammoType && (
-              <div className="text-[11px] text-[#38bdf8] font-mono">
-                {state.inventory[ITEMS[state.equippedWeapon].weaponStats!.ammoType!] ?? 0} muns
+              <div className="text-xs text-[#38bdf8] font-mono font-bold">
+                {state.inventory[ITEMS[state.equippedWeapon].weaponStats!.ammoType!] ?? 0} balas ({ITEMS[state.equippedWeapon].weaponStats!.ammoType!.replace("ammo_", "")})
               </div>
             )}
           </div>
 
           {/* Transport Info */}
-          <div className="bg-[#181d17] border border-[#343e2f] rounded p-2 text-[11px] text-[#c5b896] space-y-0.5">
-            <div className="text-[10px] uppercase text-[#8d9887]">Transporte</div>
-            <div className="font-semibold truncate text-[#e2d7ba]">{getActiveTransportDefinition(state).name}</div>
-            <div className="text-[10px] text-emerald-400 font-mono">{speedInfo.effectiveSpeedKmh} km/h</div>
+          <div className="caravan-bezel p-2.5 text-xs space-y-1">
+            <div className="text-[10px] uppercase font-black tracking-wider text-[#95a38e]">Veículo / Tração</div>
+            <div className="font-extrabold truncate text-[#ebdcb2]">{getActiveTransportDefinition(state).name}</div>
+            <div className="flex items-center justify-between text-xs font-mono font-bold">
+              <span className="text-emerald-400">{speedInfo.effectiveSpeedKmh} km/h</span>
+              <span className="text-[#95a38e] text-[10px]">({speedInfo.statusLabel})</span>
+            </div>
           </div>
         </nav>
 
         {/* CENTER VIEWPORT STAGE */}
         <section className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
+
           {activeTab === "map" && (
             <StrategicWorldMap
               state={state}
@@ -1557,7 +1570,7 @@ export default function MerchantRouteGamePage() {
           )}
 
           {activeTab === "town" && (
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto caravan-screen-bezel p-3">
               <TownScene
                 state={state}
                 settlementId={activeSettlementForHub}
@@ -1786,22 +1799,22 @@ export default function MerchantRouteGamePage() {
         </section>
       </main>
 
-      {/* 3. BOTTOM TELEGRAPH FEED & HOTKEY STATUS BAR (Height: 32px) */}
-      <footer className="h-8 shrink-0 bg-[#161a15] border-t-2 border-[#3d4738] px-3 flex items-center justify-between gap-3 text-xs font-mono text-[#c5b896] select-none z-10">
+      {/* 3. BOTTOM TELEGRAPH FEED & HOTKEY STATUS BAR (Height: 40px) */}
+      <footer className="h-10 shrink-0 bg-[#172016] border-t-2 border-[#47573f] px-3 flex items-center justify-between gap-3 text-xs font-mono text-[#ebdcb2] select-none z-10 shadow-lg">
         <div className="flex items-center gap-2 truncate">
-          <span className="text-[#fef08a] font-bold uppercase shrink-0 flex items-center gap-1">
-            <ScrollText size={13} className="text-[#8ba37c]" /> [TELEGRAPH]:
+          <span className="text-[#fde047] font-black uppercase shrink-0 flex items-center gap-1.5 bg-[#121811] border border-[#3e4d36] px-2 py-0.5 rounded shadow-inner">
+            <ScrollText size={14} className="text-emerald-400" /> [TELÉGRAFO]:
           </span>
-          <span className="truncate text-[#e2d7ba]">
+          <span className="truncate text-emerald-300 font-bold text-xs">
             {state.journalLogs[0] ?? "Trilha desimpedida. Nenhuma ocorrência registrada."}
           </span>
         </div>
-        <div className="flex items-center gap-3 shrink-0 text-[11px] text-[#8d9887]">
-          <span className="hidden md:inline">Hotkeys: [1] Atlas · [2] Viagem · [3] Cidade · [4] Carga · [Espaço] Andar/Parar</span>
+        <div className="flex items-center gap-3 shrink-0 text-xs text-[#95a38e]">
+          <span className="hidden md:inline font-bold">Atalhos: [1] Atlas · [2] Viagem · [3] Cidade · [4] Carga · [Espaço] Andar/Parar</span>
           <button
             type="button"
             onClick={() => setShowLogsModal(true)}
-            className="text-[#fef08a] hover:underline cursor-pointer"
+            className="text-[#fde047] hover:underline cursor-pointer font-bold uppercase tracking-wider"
           >
             Histórico ({state.journalLogs.length}) →
           </button>
